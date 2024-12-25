@@ -1,0 +1,9 @@
+﻿model.obj : error LNK2005: ya se definió token_type_str en arrays.obj
+parser.obj : error LNK2005: ya se definió token_type_str en arrays.obj
+pinky.obj : error LNK2005: ya se definió token_type_str en arrays.obj
+lexer.obj : error LNK2005: ya se definió advance en parser.obj
+lexer.obj : error LNK2005: ya se definió token_type_str en arrays.obj
+tokens.obj : error LNK2005: ya se definió token_type_str en arrays.obj
+model.obj : error LNK2019: símbolo externo print_dispatch sin resolver al que se hace referencia en la función print_BinOp
+pinky.obj : error LNK2019: símbolo externo print_ast sin resolver al que se hace referencia en la función main
+C:\Users\Luis.GNaharro\Dropbox\Archivos_comunes\Proyectos\Compiler\x64\Debug\pinky.exe : fatal error LNK1120: 2 externos sin resolver
