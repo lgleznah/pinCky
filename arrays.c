@@ -45,7 +45,7 @@ void init_ast_array(ast_array* array, size_t initial_size)
 {
     array->size = initial_size;
     array->used = 0;
-    array->ast_data = (token*)malloc(initial_size);
+    array->ast_data = malloc(initial_size);
 }
 
 void free_ast_array(ast_array* array)
@@ -68,5 +68,35 @@ void* allocate_ast_array(ast_array* array, size_t bytes)
     // Assign memory address
     void* addr = (void*)((char*)(array->ast_data) + array->used);
     array->used += bytes;
+    return addr;
+}
+
+void init_interpreter_memory(interpreter_memory* memory, size_t initial_size)
+{
+    memory->size = initial_size;
+    memory->used = 0;
+    memory->data = malloc(initial_size);
+}
+
+void free_interpreter_memory(interpreter_memory* memory)
+{
+    free((void*) (memory->data));
+    memory->data = NULL;
+    memory->used = 0;
+    memory->size = 0;
+}
+
+void* allocate_interpreter_memory(interpreter_memory* memory, size_t bytes)
+{
+    // Realloc if new size exceeds current limit
+    if (memory->used + bytes > memory->size)
+    {
+        printf("Max interpreter memory exceeded!\n");
+        exit(1);
+    }
+
+    // Assign memory address
+    void* addr = (void*)((char*)(memory->data) + memory->used);
+    memory->used += bytes;
     return addr;
 }

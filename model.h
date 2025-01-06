@@ -13,6 +13,8 @@ enum EXPRESSION_TYPES
 {
     Integer_expr,
     Float_expr,
+    Bool_expr,
+    String_expr,
     BinOp_expr,
     UnOp_expr,
     Grouping_expr
@@ -36,90 +38,115 @@ enum SUPERTYPES
 #define GET_ELEMENT_TYPE(element)                      ((((Element*)(element))->tag & 0x7F))
 #define GET_ELEMENT_LINE(element)                      ((((Element*)(element))->line))
 
-// Base struct to convert to for type-checking stuff
+// Base struct for elements
 typedef struct Element
 {
+    // Data type tag
     uint8_t tag;
+
+    // Line where this element appears
     int line;
+
+    // Vtable for elements interface
+    const struct ElementInterface* const vtable;
 } Element;
+
+// Base element functions interface
+typedef struct ElementInterface
+{
+    void (*print_element) (const Element* element, int depth);
+} ElementInterface;
+
+inline void print_element(const Element* element, int depth) { element->vtable->print_element(element, depth); }
 
 // Numbers like 42
 typedef struct Integer
 {
-    uint8_t tag;
-    int line;
+    Element base;
     int value;
 } Integer;
 
 int init_Integer(Integer* integer_elem, int value, int line);
-void print_Integer(const Integer* integer_elem, int depth);
+void print_Integer(const Element* integer_elem, int depth);
 
 // Numbers like 4.20
 typedef struct Float
 {
-    uint8_t tag;
-    int line;
-    float value;
+    Element base;
+    double value;
 } Float;
 
-int init_Float(Float* float_elem, float value, int line);
-void print_Float(const Float* float_elem, int depth);
+int init_Float(Float* float_elem, double value, int line);
+void print_Float(const Element* float_elem, int depth);
+
+// Just true or false
+typedef struct Bool
+{
+    Element base;
+    char value;
+} Bool;
+
+int init_Bool(Bool* bool_elem, char value, int line);
+void print_Bool(const Element* bool_elem, int depth);
+
+// Text strings like "foobar"
+typedef struct String
+{
+    Element base;
+    char* string;
+    int length;
+} String;
+
+int init_String(String* string_elem, char* string, int length, int line);
+void print_String(const Element* string_elem, int depth);
 
 // Operations like x + y
 typedef struct BinOp
 {
-    uint8_t tag;
-    int line;
+    Element base;
     token_type op;
     void* left;
     void* right;
 } BinOp;
 
 int init_BinOp(BinOp* bin_op, token_type op, void* left, void* right, int line);
-void print_BinOp(const BinOp* bin_op, int depth);
+void print_BinOp(const Element* bin_op, int depth);
 
 // Operations like -y
 typedef struct UnOp
 {
-    uint8_t tag;
-    int line;
+    Element base;
     token_type op;
     void* operand;
 } UnOp;
 
 int init_UnOp(UnOp* un_op, token_type op, void* operand, int line);
-void print_UnOp(const UnOp* un_op, int depth);
+void print_UnOp(const Element* un_op, int depth);
 
 // Parenthesized expressions ( <expr> )
 typedef struct Grouping
 {
-    uint8_t tag;
-    int line;
+    Element base;
     void* expression;
 } Grouping;
 
 int init_Grouping(Grouping* grouping_elem, void* expression, int line);
-void print_Grouping(const Grouping* grouping_elem, int depth);
+void print_Grouping(const Element* grouping_elem, int depth);
 
 // While loops
 typedef struct While
 {
-    uint8_t tag;
-    int line;
+    Element base;
 } While;
 
 int init_While(While* while_stmt, int line);
-void print_While(const While* while_stmt, int depth);
+void print_While(const Element* while_stmt, int depth);
 
 // Assignment statements
 typedef struct Assignment
 {
-    uint8_t tag;
-    int line;
+    Element base;
 } Assignment;
 
 int init_Assignment(Assignment* assignment_elem, int line);
-void print_Assignment(const Assignment* assignment_elem, int depth);
-
-// Dynamic type dispatch printing
-void ast_print_dispatch(void* element, int depth);
+void print_Assignment(const Element* assignment_elem, int depth);

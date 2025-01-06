@@ -157,6 +157,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="arrays.c" />
+    <ClCompile Include="interpreter.c" />
     <ClCompile Include="model.c" />
     <ClCompile Include="parser.c" />
     <ClCompile Include="pinky.c" />
@@ -238,6 +239,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="arrays.h" />
+    <ClInclude Include="interpreter.h" />
     <ClInclude Include="lexer.h" />
     <ClInclude Include="model.h" />
     <ClInclude Include="parser.h" />

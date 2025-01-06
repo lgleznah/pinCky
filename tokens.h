@@ -59,7 +59,7 @@ typedef enum
     TOK_RET
 } token_type;
 
-static char* token_type_str[] = {
+static const char* token_type_str[] = {
     "TOK_LPAREN",
     "TOK_RPAREN",
     "TOK_LCURLY",
@@ -110,7 +110,7 @@ static char* token_type_str[] = {
     "TOK_RET"
 };
 
-static char* token_symbols[] = {
+static const char* token_symbols[] = {
     "(",
     ")",
     "{",
@@ -139,10 +139,10 @@ static char* token_symbols[] = {
     ":=",
     ">>",
     "<<",
-    "\"identifier\"",
-    "\"string\"",
-    "\"integer\"",
-    "\"float\"",
+    "identifier",
+    "string",
+    "integer",
+    "float",
     "if",
     "then",
     "else",

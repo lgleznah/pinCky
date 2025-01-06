@@ -7,6 +7,7 @@
 
 #include "lexer.h"
 #include "parser.h"
+#include "interpreter.h"
 #include "utils.h"
 
 int main(const int argc, char* argv[])
@@ -28,23 +29,32 @@ int main(const int argc, char* argv[])
     }
 
     // File was opened successfully!
-    // Tokenize program
+    // Tokenizing stage
     lexer lexer;
     init_lexer(&lexer, fp);
     PRINT_GOOD("Tokenizing %s\n", filename);
     tokenize(&lexer);
     print_tokens(&lexer);
 
-    // Parse program
+    // Parsing stage
     parser parser;
     init_parser(&parser, &lexer.tokens);
     PRINT_GOOD("Parsing %s\n", filename);
     void* ast = parse(&parser);
     print_ast(ast);
 
+    // Interpret stage
+    interpreter interpreter;
+    init_interpreter(&interpreter);
+    PRINT_GOOD("Interpreting %s\n", filename);
+    expression_result result = interpret(&interpreter, ast);
+    string result_str = cast_to_string(&interpreter, result);
+    PRINT_GOOD("INTERPRETER RESULT: %.*s\n", result_str.length, result_str.string_value);
+
     // Close stuff
     free_lexer(&lexer);
     free_parser(&parser);
+    free_interpreter(&interpreter);
     fclose(fp);
     
     return 0;

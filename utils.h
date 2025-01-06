@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdio.h>
+#include <stdlib.h>
+
 // Terminal color printing variables
 #define KNRM  "\x1B[0m"
 #define KRED  "\x1B[31m"
@@ -13,6 +16,17 @@
 #define PRINT_ERROR_AND_QUIT(...) printf("%s", KRED); printf("General compiler error: "); printf(__VA_ARGS__); printf(KNRM); exit(1);
 #define PRINT_SYNTAX_ERROR_AND_QUIT(line, ...) printf("%s", KRED); printf("Syntax error [line %d]: ", line); printf(__VA_ARGS__); printf(KNRM); exit(1)
 #define PRINT_LEXER_ERROR_AND_QUIT(line, column, ...) printf("%s", KRED); printf("Lexer error [line %d, column %d]: ", line, column); printf(__VA_ARGS__); printf(KNRM); exit(1)
+#define PRINT_INTERPRETER_ERROR_AND_QUIT(...) printf("%s", KRED); printf("Interpreter error: "); printf(__VA_ARGS__); printf(KNRM); exit(1)
 #define PRINT_WARNING(...) printf("%s", KYEL); printf(__VA_ARGS__); printf(KNRM)
 #define PRINT_GOOD(...) printf("%s", KGRN); printf(__VA_ARGS__); printf(KNRM)
 
+inline int int_pow(int base, int exp)
+{
+    int result = 1;
+    while (exp)
+    {
+        result *= base;
+        exp--;
+    }
+    return result;
+}

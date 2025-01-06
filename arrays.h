@@ -24,3 +24,14 @@ typedef struct
 void init_ast_array(ast_array* array, size_t initial_size);
 void free_ast_array(ast_array* array);
 void* allocate_ast_array(ast_array* array, size_t bytes);
+
+typedef struct
+{
+    void* data;
+    size_t size;
+    size_t used;
+} interpreter_memory;
+
+void init_interpreter_memory(interpreter_memory* memory, size_t initial_size);
+void free_interpreter_memory(interpreter_memory* memory);
+void* allocate_interpreter_memory(interpreter_memory* memory, size_t bytes);

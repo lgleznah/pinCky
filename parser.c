@@ -19,9 +19,9 @@ void free_parser(parser* parser)
     free_ast_array(&parser->ast_array);
 }
 
-void print_ast(void* node)
+void print_ast(const void* node)
 {
-    ast_print_dispatch(node, 0);
+    print_element(node, 0);
 }
 
 // Helper functions
@@ -90,6 +90,7 @@ void* parse(parser* parser)
     return ast;
 }
 
+// <expr> ::= <term> (('+' | '-') <term> )*
 void* expr(parser* parser)
 {
     void* expr = term(parser);
@@ -104,6 +105,7 @@ void* expr(parser* parser)
     return expr;
 }
 
+// <term> ::= <factor> (('*' | '/') <factor> )*
 void* term(parser* parser)
 {
     void* expr = factor(parser);
@@ -118,11 +120,13 @@ void* term(parser* parser)
     return expr;
 }
 
+// <factor> ::= <unary>
 void* factor(parser* parser)
 {
     return unary(parser);
 }
 
+// <unary> ::= ('+'|'-'|'~') <unary>  |  <primary>
 void* unary(parser* parser)
 {
     if (parser_match(parser, TOK_NOT) || parser_match(parser, TOK_PLUS) || parser_match(parser, TOK_MINUS))
@@ -136,6 +140,7 @@ void* unary(parser* parser)
     return primary(parser);
 }
 
+// <primary>  ::=  <integer> | <float> | <bool> | <string> | '(' <expr> ')'
 void* primary(parser* parser)
 {
     char num_string[128];
@@ -154,8 +159,29 @@ void* primary(parser* parser)
         Float* number = allocate_ast_array(&parser->ast_array, sizeof(Float));
         memcpy_s(num_string, 127, float_token->start, float_token->length);
         num_string[min(127, float_token->length)] = '\0';
-        init_Float(number, strtof(num_string, NULL), float_token->line);
+        init_Float(number, strtod(num_string, NULL), float_token->line);
         return number;
+    }
+    if (parser_match(parser, TOK_TRUE))
+    {
+        token* bool_token = parser_previous_token(parser);
+        Bool* boolean = allocate_ast_array(&parser->ast_array, sizeof(Bool));
+        init_Bool(boolean, 1, bool_token->line);
+        return boolean;
+    }
+    if (parser_match(parser, TOK_FALSE))
+    {
+        token* bool_token = parser_previous_token(parser);
+        Bool* boolean = allocate_ast_array(&parser->ast_array, sizeof(Bool));
+        init_Bool(boolean, 0, bool_token->line);
+        return boolean;
+    }
+    if (parser_match(parser, TOK_STRING))
+    {
+        token* string_token = parser_previous_token(parser);
+        String* string = allocate_ast_array(&parser->ast_array, sizeof(String));
+        init_String(string, string_token->start+1, string_token->length-2, string_token->line);
+        return string;
     }
     if (parser_match(parser, TOK_LPAREN))
     {
@@ -173,6 +199,6 @@ void* primary(parser* parser)
     }
     else
     {
-        PRINT_SYNTAX_ERROR_AND_QUIT(parser_peek(parser)->line, "Expected number or '(', found '%s'\n", token_symbols[parser_peek(parser)->type]);
+        PRINT_SYNTAX_ERROR_AND_QUIT(parser_previous_token(parser)->line, "Expected number or '(', found '%s'\n", token_symbols[parser_previous_token(parser)->type]);
     }
 }
