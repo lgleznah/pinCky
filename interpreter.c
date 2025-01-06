@@ -60,6 +60,41 @@ string string_addition(interpreter* interpreter, string string1, string string2)
     return (string) {.length = string1.length+string2.length, .string_value = destination_string};
 }
 
+
+
+int string_comparison(string str1, string str2, compare_mode mode)
+{
+    int comparison_results[3][6] = {{0,1,0,1,0,1},{0,0,1,1,1,0},{1,0,1,0,0,1}};
+    
+    // strcmp-like comparison
+    int result = -1;
+    for (int i = 0; i < str1.length && i < str2.length; i++)
+    {
+        if (str1.string_value[i] > str2.string_value[i])
+        {
+            result = 2;
+            break;
+        }
+
+        if (str1.string_value[i] < str2.string_value[i])
+        {
+            result = 0;
+            break;
+        }
+    }
+
+    // Both strings are equal up to some point. Check lengths to compute result
+    if (result == -1)
+    {
+        if (str1.length < str2.length) result = 0;
+        else if (str1.length > str2.length) result = 2;
+        else result = 1;
+    }
+
+    // Use comparison mode and comparison result to return final result
+    return comparison_results[result][mode];
+}
+
 expression_result interpret(interpreter* interpreter, void* ast_node)
 {
     int element_type = GET_ELEMENT_TYPE(ast_node);
@@ -216,6 +251,163 @@ expression_result interpret(interpreter* interpreter, void* ast_node)
                     // Otherwise, this is an unsupported operation. Error-out
                     PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
 
+                // Comparison operations. All behave similarly: if both operands are numbers or bools, their values are compared.
+                // If they are strings, they are compared lexicographically and by length, like Python.
+                case TOK_GT:
+                    if ((lhs.type == INT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        int converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : lhs.value.bool_value;
+                        int converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left > converted_val_right};
+                    }
+                
+                    if ((lhs.type == INT_VALUE || lhs.type == FLOAT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == FLOAT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        double converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : (lhs.type == FLOAT_VALUE) ? lhs.value.float_value : lhs.value.bool_value;
+                        double converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : (rhs.type == FLOAT_VALUE) ? rhs.value.float_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left > converted_val_right};
+                    }
+
+                    if (lhs.type == STRING_VALUE && rhs.type == STRING_VALUE)
+                    {
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(lhs.value.string_value, rhs.value.string_value, COMPARE_GT)};
+                    }
+
+                    // Otherwise, this is an unsupported operation. Error-out
+                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
+
+                case TOK_LT:
+                    if ((lhs.type == INT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        int converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : lhs.value.bool_value;
+                        int converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left < converted_val_right};
+                    }
+                
+                    if ((lhs.type == INT_VALUE || lhs.type == FLOAT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == FLOAT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        double converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : (lhs.type == FLOAT_VALUE) ? lhs.value.float_value : lhs.value.bool_value;
+                        double converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : (rhs.type == FLOAT_VALUE) ? rhs.value.float_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left < converted_val_right};
+                    }
+
+                    if (lhs.type == STRING_VALUE && rhs.type == STRING_VALUE)
+                    {
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(lhs.value.string_value, rhs.value.string_value, COMPARE_LT)};
+                    }
+
+                    // Otherwise, this is an unsupported operation. Error-out
+                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
+                
+                case TOK_GE:
+                    if ((lhs.type == INT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        int converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : lhs.value.bool_value;
+                        int converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left >= converted_val_right};
+                    }
+                
+                    if ((lhs.type == INT_VALUE || lhs.type == FLOAT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == FLOAT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        double converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : (lhs.type == FLOAT_VALUE) ? lhs.value.float_value : lhs.value.bool_value;
+                        double converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : (rhs.type == FLOAT_VALUE) ? rhs.value.float_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left >= converted_val_right};
+                    }
+
+                    if (lhs.type == STRING_VALUE && rhs.type == STRING_VALUE)
+                    {
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(lhs.value.string_value, rhs.value.string_value, COMPARE_GE)};
+                    }
+
+                    // Otherwise, this is an unsupported operation. Error-out
+                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
+
+                case TOK_LE:
+                    if ((lhs.type == INT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        int converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : lhs.value.bool_value;
+                        int converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left <= converted_val_right};
+                    }
+                
+                    if ((lhs.type == INT_VALUE || lhs.type == FLOAT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == FLOAT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        double converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : (lhs.type == FLOAT_VALUE) ? lhs.value.float_value : lhs.value.bool_value;
+                        double converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : (rhs.type == FLOAT_VALUE) ? rhs.value.float_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left <= converted_val_right};
+                    }
+
+                    if (lhs.type == STRING_VALUE && rhs.type == STRING_VALUE)
+                    {
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(lhs.value.string_value, rhs.value.string_value, COMPARE_LE)};
+                    }
+
+                    // Otherwise, this is an unsupported operation. Error-out
+                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
+
+                case TOK_EQEQ:
+                    if ((lhs.type == INT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        int converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : lhs.value.bool_value;
+                        int converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left == converted_val_right};
+                    }
+                
+                    if ((lhs.type == INT_VALUE || lhs.type == FLOAT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == FLOAT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        double converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : (lhs.type == FLOAT_VALUE) ? lhs.value.float_value : lhs.value.bool_value;
+                        double converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : (rhs.type == FLOAT_VALUE) ? rhs.value.float_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left == converted_val_right};
+                    }
+
+                    if (lhs.type == STRING_VALUE && rhs.type == STRING_VALUE)
+                    {
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(lhs.value.string_value, rhs.value.string_value, COMPARE_EQ)};
+                    }
+
+                    // Otherwise, this is an unsupported operation. Error-out
+                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
+
+                case TOK_NE:
+                    if ((lhs.type == INT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        int converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : lhs.value.bool_value;
+                        int converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left != converted_val_right};
+                    }
+                
+                    if ((lhs.type == INT_VALUE || lhs.type == FLOAT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == FLOAT_VALUE || rhs.type == BOOL_VALUE))
+                    {
+                        double converted_val_left = (lhs.type == INT_VALUE) ? lhs.value.int_value : (lhs.type == FLOAT_VALUE) ? lhs.value.float_value : lhs.value.bool_value;
+                        double converted_val_right = (rhs.type == INT_VALUE) ? rhs.value.int_value : (rhs.type == FLOAT_VALUE) ? rhs.value.float_value : rhs.value.bool_value;
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = converted_val_left != converted_val_right};
+                    }
+
+                    if (lhs.type == STRING_VALUE && rhs.type == STRING_VALUE)
+                    {
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(lhs.value.string_value, rhs.value.string_value, COMPARE_NE)};
+                    }
+
+                    // Otherwise, this is an unsupported operation. Error-out
+                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
+
+                // Logical operands. Both are supported only for bools
+                case TOK_AND:
+                    if (lhs.type == BOOL_VALUE && rhs.type == BOOL_VALUE)
+                    {
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = lhs.value.bool_value && rhs.value.bool_value};
+                    }
+
+                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
+
+                case TOK_OR:
+                    if (lhs.type == BOOL_VALUE && rhs.type == BOOL_VALUE)
+                    {
+                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = lhs.value.bool_value || rhs.value.bool_value};
+                    }
+
+                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
+                    
                 default:
                     PRINT_INTERPRETER_ERROR_AND_QUIT("Unknown binary operation '%s'\n", token_symbols[binop_op]);
             }

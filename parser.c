@@ -90,40 +90,126 @@ void* parse(parser* parser)
     return ast;
 }
 
-// <expr> ::= <term> (('+' | '-') <term> )*
+// <expr> ::= <or_logical>
 void* expr(parser* parser)
 {
-    void* expr = term(parser);
+    return or_logical(parser);
+}
+
+// <or_logical> ::= <and_logical> ('or' <and_logical>)*
+void* or_logical(parser* parser)
+{
+    void* result = and_logical(parser);
+    while(parser_match(parser, TOK_OR))
+    {
+        void* right = and_logical(parser);
+        BinOp* bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(bin_op, TOK_OR, result, right, parser_previous_token(parser)->line);
+        result = bin_op;
+    }
+    return result;
+}
+
+// <and_logical> ::= <equality> ('and' <equality>)*
+void* and_logical(parser* parser)
+{
+    void* result = equality(parser);
+    while(parser_match(parser, TOK_AND))
+    {
+        void* right = equality(parser);
+        BinOp* bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(bin_op, TOK_AND, result, right, parser_previous_token(parser)->line);
+        result = bin_op;
+    }
+    return result;
+}
+
+// <equality> ::= <comparison> (('!=' | '==') <comparison>)*
+void* equality(parser* parser)
+{
+    void* result = comparison(parser);
+    while(parser_match(parser, TOK_NE) || parser_match(parser, TOK_EQEQ))
+    {
+        token* op = parser_previous_token(parser);
+        void* right = comparison(parser);
+        BinOp* bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(bin_op, op->type, result, right, op->line);
+        result = bin_op;
+    }
+    return result;
+}
+
+// <comparison> ::= <addition> (('>' | '<' | '>=' | '<=') <addition>)*
+void* comparison(parser* parser)
+{
+    void* result = addition(parser);
+    while(parser_match(parser, TOK_GT) || parser_match(parser, TOK_LT) || parser_match(parser, TOK_GE) || parser_match(parser, TOK_LE))
+    {
+        token* op = parser_previous_token(parser);
+        void* right = addition(parser);
+        BinOp* bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(bin_op, op->type, result, right, op->line);
+        result = bin_op;
+    }
+    return result;
+}
+
+// <addition> ::= <multiplication> (('+' | '-') <multiplication> )*
+void* addition(parser* parser)
+{
+    void* result = multiplication(parser);
     while(parser_match(parser, TOK_PLUS) || parser_match(parser, TOK_MINUS))
     {
         token* op = parser_previous_token(parser);
-        void* right = term(parser);
+        void* right = multiplication(parser);
         BinOp* bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
-        init_BinOp(bin_op, op->type, expr, right, op->line);
-        expr = bin_op;
+        init_BinOp(bin_op, op->type, result, right, op->line);
+        result = bin_op;
     }
-    return expr;
+    return result;
 }
 
-// <term> ::= <factor> (('*' | '/') <factor> )*
-void* term(parser* parser)
+// <multiplication> ::= <modulo> (('*' | '/') <modulo> )*
+void* multiplication(parser* parser)
 {
-    void* expr = factor(parser);
+    void* result = modulo(parser);
     while(parser_match(parser, TOK_STAR) || parser_match(parser, TOK_SLASH))
     {
         token* op = parser_previous_token(parser);
-        void* right = factor(parser);
+        void* right = modulo(parser);
         BinOp* bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
-        init_BinOp(bin_op, op->type, expr, right, op->line);
-        expr = bin_op;
+        init_BinOp(bin_op, op->type, result, right, op->line);
+        result = bin_op;
     }
-    return expr;
+    return result;
 }
 
-// <factor> ::= <unary>
-void* factor(parser* parser)
+// <modulo> ::= <exponent> ('%' exponent)*
+void* modulo(parser* parser)
 {
-    return unary(parser);
+    void* result = exponent(parser);
+    while(parser_match(parser, TOK_MOD))
+    {
+        void* right = exponent(parser);
+        BinOp* bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(bin_op, TOK_MOD, result, right, parser_previous_token(parser)->line);
+        result = bin_op;
+    }
+    return result;
+}
+
+// <exponent> ::= <unary> ('^' <exponent>)*
+void* exponent(parser* parser)
+{
+    void* result = unary(parser);
+    while(parser_match(parser, TOK_CARET))
+    {
+        void* right = exponent(parser);
+        BinOp* bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(bin_op, TOK_CARET, result, right, parser_previous_token(parser)->line);
+        result = bin_op;
+    }
+    return result;
 }
 
 // <unary> ::= ('+'|'-'|'~') <unary>  |  <primary>

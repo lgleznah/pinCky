@@ -26,6 +26,16 @@ typedef struct
 static string true_string = {.string_value = "true", .length = sizeof("true")-1};
 static string false_string = {.string_value = "false", .length = sizeof("false")-1};
 
+typedef enum
+{
+    COMPARE_GT,
+    COMPARE_LT,
+    COMPARE_GE,
+    COMPARE_LE,
+    COMPARE_EQ,
+    COMPARE_NE
+} compare_mode;
+
 typedef struct
 {
     result_type type;

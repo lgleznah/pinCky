@@ -18,7 +18,13 @@ void print_ast(void* node);
 
 // Functions for AST parsing
 void* expr(parser* parser);
-void* term(parser* parser);
-void* factor(parser* parser);
+void* or_logical(parser* parser);
+void* and_logical(parser* parser);
+void* equality(parser* parser);
+void* comparison(parser* parser);
+void* addition(parser* parser);
+void* multiplication(parser* parser);
+void* modulo(parser* parser);
+void* exponent(parser* parser);
 void* unary(parser* parser);
 void* primary(parser* parser);
