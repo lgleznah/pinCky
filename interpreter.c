@@ -44,6 +44,27 @@ string cast_to_string(interpreter* interpreter, expression_result expression)
     }
 }
 
+int cast_to_bool(interpreter* interpreter, expression_result expression)
+{
+    switch (expression.type)
+    {
+        case STRING_VALUE:
+            return (expression.value.string_value.length) ? 1 : 0;
+
+        case INT_VALUE:
+            return (expression.value.int_value) ? 1 : 0;
+
+        case FLOAT_VALUE:
+            return (expression.value.float_value >= 0) ? 1 : 0;
+
+        case BOOL_VALUE:
+            return (expression.value.bool_value);
+
+        default:
+            PRINT_INTERPRETER_ERROR_AND_QUIT("Cannot convert expression of type '%s' to bool. This should not appear...", type_names[expression.type]);
+    }
+}
+
 string string_addition(interpreter* interpreter, string string1, string string2)
 {
     char* destination_string = allocate_interpreter_memory(&interpreter->memory, string1.length+string2.length);
@@ -107,15 +128,35 @@ expression_result interpret(interpreter* interpreter, void* ast_node)
             return (expression_result) {.type = FLOAT_VALUE, .value.float_value = ((Float*)ast_node)->value};
 
         case Bool_expr:
-            return (expression_result) {.type = BOOL_VALUE, .value.bool_value = ((Bool*)ast_node)->value};
+            return ((Bool*)ast_node)->value ? true_expression : false_expression;
 
         case String_expr:
             return (expression_result) {.type = STRING_VALUE, .value.string_value.string_value = ((String*)ast_node)->string, .value.string_value.length = ((String*)ast_node)->length};
     
         case BinOp_expr:
             expression_result lhs = interpret(interpreter, ((BinOp*)ast_node)->left);
-            expression_result rhs = interpret(interpreter, ((BinOp*)ast_node)->right);
             token_type binop_op = ((BinOp*)ast_node)->op;
+
+            // Logic operand shortcuts
+            if (binop_op == TOK_AND)
+            {
+                if (cast_to_bool(interpreter, lhs))
+                {
+                    return interpret(interpreter, ((BinOp*)ast_node)->right);
+                }
+                return lhs;
+            }
+
+            if (binop_op == TOK_OR)
+            {
+                if (cast_to_bool(interpreter, lhs))
+                {
+                    return lhs;
+                }
+                return interpret(interpreter, ((BinOp*)ast_node)->right);
+            }
+        
+            expression_result rhs = interpret(interpreter, ((BinOp*)ast_node)->right);
             switch (binop_op)
             {
                 case TOK_PLUS:
@@ -191,17 +232,29 @@ expression_result interpret(interpreter* interpreter, void* ast_node)
                     // Case 1 for division: both are integers. Return an integer
                     if (lhs.type == INT_VALUE && rhs.type == INT_VALUE)
                     {
+                        if (rhs.value.int_value == 0)
+                        {
+                            PRINT_INTERPRETER_ERROR_AND_QUIT("Division by zero\n");
+                        }
                         return (expression_result) {.type = INT_VALUE, .value.int_value = lhs.value.int_value / rhs.value.int_value};
                     }
 
                     // Case 2 for division: one value is a float. Return a float
                     if (lhs.type == FLOAT_VALUE && (rhs.type == FLOAT_VALUE || rhs.type == INT_VALUE))
                     {
+                        if (((rhs.type == FLOAT_VALUE) ? rhs.value.float_value : (double) (rhs.value.int_value)) == 0.0)
+                        {
+                            PRINT_INTERPRETER_ERROR_AND_QUIT("Division by zero\n");
+                        }
                         return (expression_result) {.type = FLOAT_VALUE, .value.float_value = lhs.value.float_value / ((rhs.type == FLOAT_VALUE) ? rhs.value.float_value : (double) (rhs.value.int_value))};
                     }
 
                     if (rhs.type == FLOAT_VALUE && (lhs.type == FLOAT_VALUE || lhs.type == INT_VALUE))
                     {
+                        if (rhs.value.float_value == 0)
+                        {
+                            PRINT_INTERPRETER_ERROR_AND_QUIT("Division by zero\n");
+                        }
                         return (expression_result) {.type = FLOAT_VALUE, .value.float_value = ((lhs.type == FLOAT_VALUE) ? lhs.value.float_value : (double) (lhs.value.int_value)) / rhs.value.float_value};
                     }
 
@@ -365,8 +418,8 @@ expression_result interpret(interpreter* interpreter, void* ast_node)
                         return (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(lhs.value.string_value, rhs.value.string_value, COMPARE_EQ)};
                     }
 
-                    // Otherwise, this is an unsupported operation. Error-out
-                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
+                    // Otherwise, we are comparing non-comparable types. Return false
+                    return false_expression;
 
                 case TOK_NE:
                     if ((lhs.type == INT_VALUE || lhs.type == BOOL_VALUE) && (rhs.type == INT_VALUE || rhs.type == BOOL_VALUE))
@@ -388,25 +441,8 @@ expression_result interpret(interpreter* interpreter, void* ast_node)
                         return (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(lhs.value.string_value, rhs.value.string_value, COMPARE_NE)};
                     }
 
-                    // Otherwise, this is an unsupported operation. Error-out
-                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
-
-                // Logical operands. Both are supported only for bools
-                case TOK_AND:
-                    if (lhs.type == BOOL_VALUE && rhs.type == BOOL_VALUE)
-                    {
-                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = lhs.value.bool_value && rhs.value.bool_value};
-                    }
-
-                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
-
-                case TOK_OR:
-                    if (lhs.type == BOOL_VALUE && rhs.type == BOOL_VALUE)
-                    {
-                        return (expression_result) {.type = BOOL_VALUE, .value.bool_value = lhs.value.bool_value || rhs.value.bool_value};
-                    }
-
-                    PRINT_INTERPRETER_ERROR_AND_QUIT("Unsupported operation '%s' between '%s' and '%s'\n", token_symbols[binop_op], type_names[lhs.type], type_names[rhs.type]);
+                    // Otherwise, we are comparing non-comparable types. Return true
+                    return true_expression;
                     
                 default:
                     PRINT_INTERPRETER_ERROR_AND_QUIT("Unknown binary operation '%s'\n", token_symbols[binop_op]);
