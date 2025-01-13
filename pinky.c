@@ -47,9 +47,7 @@ int main(const int argc, char* argv[])
     interpreter interpreter;
     init_interpreter(&interpreter);
     PRINT_GOOD("Interpreting %s\n", filename);
-    expression_result result = interpret(&interpreter, ast);
-    string result_str = cast_to_string(&interpreter, result);
-    PRINT_GOOD("INTERPRETER RESULT: %.*s\n", result_str.length, result_str.string_value);
+    interpret(&interpreter, ast);
 
     // Close stuff
     free_lexer(&lexer);

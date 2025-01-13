@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "model.h"
+
 void init_token_array(token_array* array, size_t initial_size)
 {
     array->size = initial_size;
@@ -91,8 +93,23 @@ void* allocate_interpreter_memory(interpreter_memory* memory, size_t bytes)
     // Realloc if new size exceeds current limit
     if (memory->used + bytes > memory->size)
     {
-        printf("Max interpreter memory exceeded!\n");
-        exit(1);
+        memory->size = max(memory->size * 2, memory->used + bytes);
+        void* tmp = realloc((void*) (memory->data), memory->size);
+        if (!tmp)
+        {
+            printf("Realloc failed!\n");
+            exit(1);
+        }
+
+        // Once realloc'd, ALL pointers within the AST must be updated.
+        long long ptr_diff = (char*)(tmp) - (char*)(memory->data);
+        memory->data = tmp;
+        char* addr = (char*)tmp;
+        while (addr < addr + memory->used)
+        {
+            update_on_realloc((Element*)addr, ptr_diff);
+            addr += element_size((Element*)addr);
+        }
     }
 
     // Assign memory address

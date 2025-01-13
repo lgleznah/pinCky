@@ -17,6 +17,7 @@ void* parse(parser* parser);
 void print_ast(void* node);
 
 // Functions for AST parsing
+// Expression-parsing functions
 void* expr(parser* parser);
 void* or_logical(parser* parser);
 void* and_logical(parser* parser);
@@ -28,3 +29,8 @@ void* modulo(parser* parser);
 void* exponent(parser* parser);
 void* unary(parser* parser);
 void* primary(parser* parser);
+
+// Statement-parsing functions
+void* program(parser* parser);
+void* stmts(parser* parser);
+void* stmt(parser* parser);

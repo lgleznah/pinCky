@@ -90,6 +90,19 @@ void* parse(parser* parser)
     return ast;
 }
 
+// <program> ::= <stmts>
+/*void* program(parser* parser)
+{
+    void* result = stmts(parser);
+    return result;
+}*/
+
+// <stmts> ::= <stmt>+
+/*void* stmts(parser* parser)
+{
+    
+}*/
+
 // <expr> ::= <or_logical>
 void* expr(parser* parser)
 {
