@@ -34,3 +34,4 @@ void* primary(parser* parser);
 void* program(parser* parser);
 void* stmts(parser* parser);
 void* stmt(parser* parser);
+void* print_stmt(parser* parser);

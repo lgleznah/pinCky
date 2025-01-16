@@ -11,7 +11,7 @@ void init_parser(parser* parser, token_array* tokens)
 {
     parser->tokens = tokens;
     parser->curr_token = 0;
-    init_ast_array(&parser->ast_array, 65535);
+    init_ast_array(&parser->ast_array, 0);
 }
 
 void free_parser(parser* parser)
@@ -86,22 +86,65 @@ token* parser_previous_token(const parser* parser)
 // Parser functions
 void* parse(parser* parser)
 {
-    void* ast = expr(parser);
+    void* ast = program(parser);
     return ast;
 }
 
 // <program> ::= <stmts>
-/*void* program(parser* parser)
+void* program(parser* parser)
 {
     void* result = stmts(parser);
     return result;
-}*/
+}
 
 // <stmts> ::= <stmt>+
-/*void* stmts(parser* parser)
+void* stmts(parser* parser)
 {
+    // Statements are stored in an array as offsets, rather than pointers,
+    // as AST reallocs might potentially invalidate any obtained pointer.
+    // However, when the statement list is fully built, these offsets can be
+    // converted into pointers, and the statements realloc update function will
+    // update these properly.
+    statement_array array;
+    init_statement_array(&array, 65536);
+
+    while (parser->curr_token < parser->tokens->used)
+    {
+        void* result = stmt(parser);
+        insert_statement_array(&array, (char*)(result) - (char*)(parser->ast_array.ast_data));
+    }
+
+    StatementList* stmts = allocate_ast_array(&parser->ast_array, sizeof(StatementList) + array.used * sizeof(void*));
+    init_StatementList(stmts, &array, parser->ast_array.ast_data, GET_ELEMENT_LINE(array.statements));
     
-}*/
+    free_statement_array(&array);
+    return stmts;
+}
+
+// <stmt> ::= <expr> | <print> | <assign> | <local_assign> | <println> | <if> | <while> | <for> | <func_decl> | <func_call> | <ret>
+void* stmt(parser* parser)
+{
+    if (parser_peek(parser)->type == TOK_PRINT)
+    {
+        return print_stmt(parser);
+    }
+
+    return NULL;
+}
+
+// <print> ::= 'print' <expr>
+void* print_stmt(parser* parser)
+{
+    if (parser_match(parser, TOK_PRINT))
+    {
+        void* result = expr(parser);
+        Print* print = allocate_ast_array(&parser->ast_array, sizeof(Print));
+        init_Print(print, result, parser_previous_token(parser)->line);
+        return print;
+    }
+
+    return NULL;
+}
 
 // <expr> ::= <or_logical>
 void* expr(parser* parser)

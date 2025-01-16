@@ -43,12 +43,12 @@ int main(const int argc, char* argv[])
     void* ast = parse(&parser);
     print_ast(ast);
 
-    // Interpret stage
+    // Interpreter stage
     interpreter interpreter;
     init_interpreter(&interpreter);
     PRINT_GOOD("Interpreting %s\n", filename);
     interpret(&interpreter, ast);
-
+    
     // Close stuff
     free_lexer(&lexer);
     free_parser(&parser);

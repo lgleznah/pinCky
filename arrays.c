@@ -21,8 +21,7 @@ void insert_token_array(token_array* array, token_type type, int line, int colum
         if (!tmp)
         {
             printf("Realloc failed!\n");
-            free_token_array(array);
-            return;
+            exit(1);
         }
         array->data = (token*)tmp;
     }
@@ -63,12 +62,28 @@ void* allocate_ast_array(ast_array* array, size_t bytes)
     // Realloc if new size exceeds current limit
     if (array->used + bytes > array->size)
     {
-        printf("Max parser memory exceeded!\n");
-        exit(1);
+        array->size = max(array->size * 2, array->used + bytes);
+        void* tmp = realloc(array->ast_data, array->size);
+        if (!tmp)
+        {
+            printf("Realloc failed!\n");
+            exit(1);
+        }
+
+        // Once realloc'd, ALL pointers within the AST must be updated.
+        long long ptr_diff = (long long)(tmp) - (long long)(array->ast_data);
+        array->ast_data = tmp;
+        size_t processed_bytes = 0;
+        while (processed_bytes < array->used)
+        {
+            Element* element = (Element*) ((long long)(array->ast_data) + processed_bytes);
+            update_on_realloc(element, ptr_diff);
+            processed_bytes += element_size(element);
+        }
     }
 
     // Assign memory address
-    void* addr = (void*)((char*)(array->ast_data) + array->used);
+    void* addr = (void*)((long long)(array->ast_data) + array->used);
     array->used += bytes;
     return addr;
 }
@@ -78,6 +93,11 @@ void init_interpreter_memory(interpreter_memory* memory, size_t initial_size)
     memory->size = initial_size;
     memory->used = 0;
     memory->data = malloc(initial_size);
+}
+
+void clear_interpreter_memory(interpreter_memory* memory)
+{
+    memory->used = 0;
 }
 
 void free_interpreter_memory(interpreter_memory* memory)
@@ -93,27 +113,45 @@ void* allocate_interpreter_memory(interpreter_memory* memory, size_t bytes)
     // Realloc if new size exceeds current limit
     if (memory->used + bytes > memory->size)
     {
-        memory->size = max(memory->size * 2, memory->used + bytes);
-        void* tmp = realloc((void*) (memory->data), memory->size);
-        if (!tmp)
-        {
-            printf("Realloc failed!\n");
-            exit(1);
-        }
-
-        // Once realloc'd, ALL pointers within the AST must be updated.
-        long long ptr_diff = (char*)(tmp) - (char*)(memory->data);
-        memory->data = tmp;
-        char* addr = (char*)tmp;
-        while (addr < addr + memory->used)
-        {
-            update_on_realloc((Element*)addr, ptr_diff);
-            addr += element_size((Element*)addr);
-        }
+        printf("Max parser memory exceeded!\n");
+        exit(1);
     }
 
     // Assign memory address
     void* addr = (void*)((char*)(memory->data) + memory->used);
     memory->used += bytes;
     return addr;
+}
+
+void init_statement_array(statement_array* array, size_t initial_size)
+{
+    array->size = initial_size;
+    array->used = 0;
+    array->statements = (size_t*)malloc(initial_size * sizeof(size_t));
+}
+
+void insert_statement_array(statement_array* array, size_t statement_offset)
+{
+    if (array->used == array->size)
+    {
+        array->size *= 2;
+        void* tmp = realloc(array->statements, array->size * sizeof(size_t));
+        if (!tmp)
+        {
+            printf("Realloc failed!\n");
+            exit(1);
+        }
+        array->statements = (size_t*)tmp;
+    }
+
+    array->statements[array->used] = statement_offset;
+    array->used++;
+}
+
+void free_statement_array(statement_array* array)
+{
+    free((void*) (array->statements));
+    array->statements = NULL;
+    array->used = 0;
+    array->size = 0;
 }

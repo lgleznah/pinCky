@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 
+#include "arrays.h"
 #include "tokens.h"
 
 // All AST elements are modelled as structs, where the first field is
@@ -22,8 +23,12 @@ enum EXPRESSION_TYPES
 
 enum STATEMENT_TYPES
 {
+    StatementList_stmt,
     While_stmt,
-    Assignment_stmt
+    Assignment_stmt,
+    Print_stmt,
+    If_stmt,
+    For_stmt
 };
 
 enum SUPERTYPES
@@ -55,12 +60,12 @@ typedef struct Element
 typedef struct ElementInterface
 {
     void (*print_element) (const Element* element, int depth);
-    int (*element_size) (const Element* element);
+    size_t (*element_size) (const Element* element);
     void (*update_on_realloc) (Element* element, long long ptr_diff);
 } ElementInterface;
 
 inline void print_element(const Element* element, int depth) { element->vtable->print_element(element, depth); }
-inline int element_size(const Element* element) { return element->vtable->element_size(element); }
+inline size_t element_size(const Element* element) { return element->vtable->element_size(element); }
 inline void update_on_realloc(Element* element, long long ptr_diff) { element->vtable->update_on_realloc(element, ptr_diff); }
 
 // Numbers like 42
@@ -72,7 +77,7 @@ typedef struct Integer
 
 int init_Integer(Integer* integer_elem, int value, int line);
 void print_Integer(const Element* integer_elem, int depth);
-int element_size_Integer(const Element* integer_elem);
+size_t element_size_Integer(const Element* integer_elem);
 void update_on_realloc_Integer(Element* integer_elem, long long ptr_diff);
 
 // Numbers like 4.20
@@ -84,7 +89,7 @@ typedef struct Float
 
 int init_Float(Float* float_elem, double value, int line);
 void print_Float(const Element* float_elem, int depth);
-int element_size_Float(const Element* float_elem);
+size_t element_size_Float(const Element* float_elem);
 void update_on_realloc_Float(Element* float_elem, long long ptr_diff);
 
 
@@ -97,7 +102,7 @@ typedef struct Bool
 
 int init_Bool(Bool* bool_elem, char value, int line);
 void print_Bool(const Element* bool_elem, int depth);
-int element_size_Bool(const Element* bool_elem);
+size_t element_size_Bool(const Element* bool_elem);
 void update_on_realloc_Bool(Element* bool_elem, long long ptr_diff);
 
 // Text strings like "foobar"
@@ -110,7 +115,7 @@ typedef struct String
 
 int init_String(String* string_elem, char* string, int length, int line);
 void print_String(const Element* string_elem, int depth);
-int element_size_String(const Element* string_elem);
+size_t element_size_String(const Element* string_elem);
 void update_on_realloc_String(Element* string_elem, long long ptr_diff);
 
 // Operations like x + y
@@ -124,7 +129,7 @@ typedef struct BinOp
 
 int init_BinOp(BinOp* binop_elem, token_type op, void* left, void* right, int line);
 void print_BinOp(const Element* binop_elem, int depth);
-int element_size_BinOp(const Element* binop_elem);
+size_t element_size_BinOp(const Element* binop_elem);
 void update_on_realloc_BinOp(Element* binop_elem, long long ptr_diff);
 
 // Operations like -y
@@ -137,7 +142,7 @@ typedef struct UnOp
 
 int init_UnOp(UnOp* unop_elem, token_type op, void* operand, int line);
 void print_UnOp(const Element* unop_elem, int depth);
-int element_size_UnOp(const Element* unop_elem);
+size_t element_size_UnOp(const Element* unop_elem);
 void update_on_realloc_UnOp(Element* unop_elem, long long ptr_diff);
 
 // Parenthesized expressions ( <expr> )
@@ -149,8 +154,20 @@ typedef struct Grouping
 
 int init_Grouping(Grouping* grouping_elem, void* expression, int line);
 void print_Grouping(const Element* grouping_elem, int depth);
-int element_size_Grouping(const Element* grouping_elem);
+size_t element_size_Grouping(const Element* grouping_elem);
 void update_on_realloc_Grouping(Element* grouping_elem, long long ptr_diff);
+
+// List of statements
+typedef struct StatementList
+{
+    Element base;
+    size_t size;
+} StatementList;
+
+int init_StatementList(StatementList* statement_list_elem, statement_array* array, void* ast_base, int line);
+void print_StatementList(const Element* statement_list_elem, int depth);
+size_t element_size_StatementList(const Element* statement_list_elem);
+void update_on_realloc_StatementList(Element* statement_list_elem, long long ptr_diff);
 
 // While loops
 typedef struct While
@@ -160,7 +177,7 @@ typedef struct While
 
 int init_While(While* while_elem, int line);
 void print_While(const Element* while_elem, int depth);
-int element_size_While(const Element* while_elem);
+size_t element_size_While(const Element* while_elem);
 void update_on_realloc_While(Element* while_elem, long long ptr_diff);
 
 // Assignment statements
@@ -171,5 +188,39 @@ typedef struct Assignment
 
 int init_Assignment(Assignment* assignment_elem, int line);
 void print_Assignment(const Element* assignment_elem, int depth);
-int element_size_Assignment(const Element* assignment_elem);
+size_t element_size_Assignment(const Element* assignment_elem);
 void update_on_realloc_Assignment(Element* assignment_elem, long long ptr_diff);
+
+// Print statements
+typedef struct Print
+{
+    Element base;
+    void* expression;
+} Print;
+
+int init_Print(Print* print_elem, void* expression, int line);
+void print_Print(const Element* print_elem, int depth);
+size_t element_size_Print(const Element* print_elem);
+void update_on_realloc_Print(Element* print_elem, long long ptr_diff);
+
+// If-then-else statements
+typedef struct If
+{
+    Element base;
+} If;
+
+int init_If(If* if_elem, int line);
+void print_If(const Element* if_elem, int depth);
+size_t element_size_If(const Element* if_elem);
+void update_on_realloc_If(Element* if_elem, long long ptr_diff);
+
+// For-loop statements
+typedef struct For
+{
+    Element base;
+} For;
+
+int init_For(For* for_elem, int line);
+void print_For(const Element* for_elem, int depth);
+size_t element_size_For(const Element* for_elem);
+void update_on_realloc_For(Element* for_elem, long long ptr_diff);

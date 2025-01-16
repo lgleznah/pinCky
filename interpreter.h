@@ -4,6 +4,7 @@
 
 typedef enum
 {
+    NONE,
     INT_VALUE,
     FLOAT_VALUE,
     BOOL_VALUE,

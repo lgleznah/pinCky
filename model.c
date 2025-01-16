@@ -7,6 +7,7 @@
 #include "utils.h"
 
 #define AST_PRINT_PAD(depth) (printf("%*s", (depth)*4, ""))
+#define UPDATE_PTR(ptr) ((ptr) = (void*)((long long)(ptr) + ptr_diff))
 
 ///////////////////////////////////////////////
 /// INTEGER FUNCTIONS
@@ -32,7 +33,7 @@ void print_Integer(const Element* integer_elem, int depth)
 }
 
 // Integers are constant-sized in the AST data array. Just return their size
-int element_size_Integer(const Element* element)
+size_t element_size_Integer(const Element* element)
 {
     return sizeof(Integer);
 }
@@ -64,7 +65,7 @@ void print_Float(const Element* float_elem, int depth)
 }
 
 // Floats are constant-sized in the AST data array. Just return their size
-int element_size_Float(const Element* float_elem)
+size_t element_size_Float(const Element* float_elem)
 {
     return sizeof(Float);
 }
@@ -96,7 +97,7 @@ void print_Bool(const Element* bool_elem, int depth)
 }
 
 // Bools are constant-sized in the AST data array. Just return their size
-int element_size_Bool(const Element* bool_elem)
+size_t element_size_Bool(const Element* bool_elem)
 {
     return sizeof(Bool);
 }
@@ -129,7 +130,7 @@ void print_String(const Element* string_elem, int depth)
 }
 
 // Strings are constant-sized in the AST data array. Just return their size
-int element_size_String(const Element* string_elem)
+size_t element_size_String(const Element* string_elem)
 {
     return sizeof(String);
 }
@@ -176,7 +177,7 @@ void print_BinOp(const Element* binop_elem, int depth)
 }
 
 // Binops are constant-sized in the AST data array. Just return their size
-int element_size_BinOp(const Element* binop_elem)
+size_t element_size_BinOp(const Element* binop_elem)
 {
     return sizeof(BinOp);
 }
@@ -185,8 +186,8 @@ int element_size_BinOp(const Element* binop_elem)
 void update_on_realloc_BinOp(Element* binop_elem, long long ptr_diff)
 {
     BinOp* bin_op_element = (BinOp*) binop_elem;
-    bin_op_element->left = (void*)((char*)(bin_op_element->left) + ptr_diff);
-    bin_op_element->right = (void*)((char*)(bin_op_element->right) + ptr_diff);
+    UPDATE_PTR(bin_op_element->left);
+    UPDATE_PTR(bin_op_element->right);
 }
 
 ///////////////////////////////////////////////
@@ -222,7 +223,7 @@ void print_UnOp(const Element* unop_elem, int depth)
 }
 
 // Unops are constant-sized in the AST data array. Just return their size
-int element_size_UnOp(const Element* unop_elem)
+size_t element_size_UnOp(const Element* unop_elem)
 {
     return sizeof(UnOp);
 }
@@ -231,7 +232,7 @@ int element_size_UnOp(const Element* unop_elem)
 void update_on_realloc_UnOp(Element* unop_elem, long long ptr_diff)
 {
     UnOp* un_op_element = (UnOp*) unop_elem;
-    un_op_element->operand = (void*)((char*)(un_op_element->operand) + ptr_diff);
+    UPDATE_PTR(un_op_element->operand);
 }
 
 ///////////////////////////////////////////////
@@ -245,7 +246,7 @@ int init_Grouping(Grouping* grouping_elem, void* expression, int line)
         return 0;
     }
 
-    static const ElementInterface vtable = { print_Grouping };
+    static const ElementInterface vtable = { print_Grouping, element_size_Grouping, update_on_realloc_Grouping };
     static Element base = { 0, 0, &vtable};
     memcpy(&grouping_elem->base, &base, sizeof(base));
 
@@ -266,7 +267,7 @@ void print_Grouping(const Element* grouping_elem, int depth)
 }
 
 // Groupings are constant-sized in the AST data array. Just return their size
-int element_size_Grouping(const Element* grouping_elem)
+size_t element_size_Grouping(const Element* grouping_elem)
 {
     return sizeof(Grouping);
 }
@@ -275,8 +276,79 @@ int element_size_Grouping(const Element* grouping_elem)
 void update_on_realloc_Grouping(Element* grouping_elem, long long ptr_diff)
 {
     Grouping* grouping_element = (Grouping*) grouping_elem;
-    grouping_element->expression = (void*)((char*)(grouping_element->expression) + ptr_diff);
+    UPDATE_PTR(grouping_element->expression);
 }
+
+///////////////////////////////////////////////
+/// STATEMENTLIST FUNCTIONS
+///////////////////////////////////////////////
+
+int init_StatementList(StatementList* statement_list_elem, statement_array* array, void* ast_base, int line)
+{
+    for (size_t i = 0; i < array->used; i++)
+    {
+        if (!CHECK_ELEMENT_SUPERTYPE(array->statements[i] + (char*)(ast_base), Statement))
+        {
+            return 0;
+        }
+    }
+
+    static const ElementInterface vtable = { print_StatementList, element_size_StatementList, update_on_realloc_StatementList };
+    static Element base = { 0, 0, &vtable};
+    memcpy(&statement_list_elem->base, &base, sizeof(base));
+
+    statement_list_elem->base.line = line;
+    statement_list_elem->base.tag = SET_ELEMENT_TYPE(Statement, StatementList_stmt);
+    statement_list_elem->size = array->used;
+
+    // Insert elements into memory after the struct itself
+    void** statement_ptrs = (void**)(statement_list_elem + sizeof(StatementList));
+    for (size_t i = 0; i < array->used; i++)
+    {
+        *statement_ptrs++ = array->statements[i] + (char*)(ast_base);
+    }
+
+    return 1;
+}
+
+void print_StatementList(const Element* statement_list_elem, int depth)
+{
+    const StatementList* statement_list_element = (const StatementList*)statement_list_elem;
+    AST_PRINT_PAD(depth);
+    printf("StatementList {\n");
+    
+    const void** statement_ptrs = (const void**)(statement_list_element + sizeof(StatementList));
+    for (size_t i = 0; i < statement_list_element->size; i++)
+    {
+        print_element(*statement_ptrs++, depth+1);
+        printf("\n");
+    }
+    
+    printf("\n");
+    AST_PRINT_PAD(depth);
+    printf("}");
+}
+
+size_t element_size_StatementList(const Element* statement_list_elem)
+{
+    const StatementList* statement_list_element = (const StatementList*)statement_list_elem;
+    return sizeof(StatementList) + statement_list_element->size * sizeof(void*);
+}
+
+void update_on_realloc_StatementList(Element* statement_list_elem, long long ptr_diff)
+{
+    StatementList* statement_list_element = (StatementList*)statement_list_elem;
+    void** statement_ptrs = (void**)(statement_list_element + sizeof(StatementList));
+    
+    for (size_t i = 0; i < statement_list_element->size; i++)
+    {
+        UPDATE_PTR(*statement_ptrs);
+    }
+}
+
+///////////////////////////////////////////////
+/// WHILE FUNCTIONS
+///////////////////////////////////////////////
 
 int init_While(While* while_elem, int line)
 {
@@ -287,6 +359,10 @@ void print_While(const Element* while_elem, int depth)
     
 }
 
+///////////////////////////////////////////////
+/// ASSIGNMENT FUNCTIONS
+///////////////////////////////////////////////
+
 int init_Assignment(Assignment* assignment_elem, int line)
 {
     return -1;
@@ -296,3 +372,54 @@ void print_Assignment(const Element* assignment_elem, int depth)
 {
     
 }
+
+///////////////////////////////////////////////
+/// PRINT FUNCTIONS
+///////////////////////////////////////////////
+
+int init_Print(Print* print_elem, void* expression, int line)
+{
+    if (!CHECK_ELEMENT_SUPERTYPE(expression, Expression))
+    {
+        return 0;
+    }
+
+    static const ElementInterface vtable = { print_Print, element_size_Print, update_on_realloc_Print };
+    static Element base = { 0, 0, &vtable};
+    memcpy(&print_elem->base, &base, sizeof(base));
+
+    print_elem->base.line = line;
+    print_elem->base.tag = SET_ELEMENT_TYPE(Statement, Print_stmt);
+    print_elem->expression = expression;
+    return 1;
+}
+
+void print_Print(const Element* print_elem, int depth)
+{
+    const Print* prnt_element = (const Print*)print_elem;
+    AST_PRINT_PAD(depth);
+    printf("Print {\n");
+    print_element(prnt_element->expression, depth+1);
+    printf("\n");
+    AST_PRINT_PAD(depth);
+    printf("}");
+}
+
+size_t element_size_Print(const Element* print_elem)
+{
+    return sizeof(Print);
+}
+
+void update_on_realloc_Print(Element* print_elem, long long ptr_diff)
+{
+    Print* print_element = (Print*) print_elem;
+    UPDATE_PTR(print_element->expression);
+}
+
+///////////////////////////////////////////////
+/// IF FUNCTIONS
+///////////////////////////////////////////////
+
+///////////////////////////////////////////////
+/// FOR FUNCTIONS
+///////////////////////////////////////////////
