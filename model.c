@@ -8,6 +8,7 @@
 
 #define AST_PRINT_PAD(depth) (printf("%*s", (depth)*4, ""))
 #define UPDATE_PTR(ptr) ((ptr) = (void*)((long long)(ptr) + ptr_diff))
+#define OFFSET_PTR(ptr) ((void*)((ptr) + (char*)(ast_base)))
 
 ///////////////////////////////////////////////
 /// INTEGER FUNCTIONS
@@ -15,7 +16,7 @@
 
 int init_Integer(Integer* integer_elem, int value, int line)
 {
-    static const ElementInterface vtable = { print_Integer, element_size_Integer, update_on_realloc_Integer };
+    static const ElementInterface vtable = { print_Integer, element_size_Integer, compute_ptr_Integer };
     static Element base = { 0, 0, &vtable };
     memcpy(&integer_elem->base, &base, sizeof(base));
 
@@ -39,7 +40,7 @@ size_t element_size_Integer(const Element* element)
 }
 
 // Integers hold no pointers to be updated upon a realloc. Do nothing
-void update_on_realloc_Integer(Element* integer_elem, long long ptr_diff) {}
+void compute_ptr_Integer(Element* integer_elem, void* ast_base) {}
 
 ///////////////////////////////////////////////
 /// FLOAT FUNCTIONS
@@ -47,7 +48,7 @@ void update_on_realloc_Integer(Element* integer_elem, long long ptr_diff) {}
 
 int init_Float(Float* float_elem, double value, int line)
 {
-    static const ElementInterface vtable = { print_Float, element_size_Float, update_on_realloc_Float };
+    static const ElementInterface vtable = { print_Float, element_size_Float, compute_ptr_Float };
     static Element base = { 0, 0, &vtable};
     memcpy(&float_elem->base, &base, sizeof(base));
 
@@ -71,7 +72,7 @@ size_t element_size_Float(const Element* float_elem)
 }
 
 // Floats hold no pointers to be updated upon a realloc. Do nothing
-void update_on_realloc_Float(Element* float_elem, long long ptr_diff) {}
+void compute_ptr_Float(Element* float_elem, void* ast_base) {}
 
 ///////////////////////////////////////////////
 /// BOOL FUNCTIONS
@@ -79,7 +80,7 @@ void update_on_realloc_Float(Element* float_elem, long long ptr_diff) {}
 
 int init_Bool(Bool* bool_elem, char value, int line)
 {
-    static const ElementInterface vtable = { print_Bool, element_size_Bool, update_on_realloc_Bool };
+    static const ElementInterface vtable = { print_Bool, element_size_Bool, compute_ptr_Bool };
     static Element base = { 0, 0, &vtable};
     memcpy(&bool_elem->base, &base, sizeof(base));
 
@@ -103,7 +104,7 @@ size_t element_size_Bool(const Element* bool_elem)
 }
 
 // Bools hold no pointers to be updated upon a realloc. Do nothing
-void update_on_realloc_Bool(Element* bool_elem, long long ptr_diff) {}
+void compute_ptr_Bool(Element* bool_elem, void* ast_base) {}
 
 ///////////////////////////////////////////////
 /// STRING FUNCTIONS
@@ -111,7 +112,7 @@ void update_on_realloc_Bool(Element* bool_elem, long long ptr_diff) {}
 
 int init_String(String* string_elem, char* string, int length, int line)
 {
-    static const ElementInterface vtable = { print_String, element_size_String, update_on_realloc_String };
+    static const ElementInterface vtable = { print_String, element_size_String, compute_ptr_String };
     static Element base = { 0, 0, &vtable};
     memcpy(&string_elem->base, &base, sizeof(base));
 
@@ -138,28 +139,30 @@ size_t element_size_String(const Element* string_elem)
 // Strings hold no pointers to be updated upon a realloc. Do nothing. Do note that, while strings
 // DO hold a pointer to their contents, these are not located in the AST array, but rather in the
 // source file array, in the expression-evaluation array, or stored as an interpreter variable.
-void update_on_realloc_String(Element* string_elem, long long ptr_diff) {}
+void compute_ptr_String(Element* string_elem, void* ast_base) {}
 
 ///////////////////////////////////////////////
 /// BINOP FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_BinOp(BinOp* binop_elem, token_type op, void* left, void* right, int line)
+int init_BinOp(BinOp* binop_elem, token_type op, size_t left, size_t right, void* ast_base, int line)
 {
-    if (!CHECK_ELEMENT_SUPERTYPE(left, Expression) || !CHECK_ELEMENT_SUPERTYPE(right, Expression))
+    void* left_ptr = OFFSET_PTR(left);
+    void* right_ptr = OFFSET_PTR(right);
+    if (!CHECK_ELEMENT_SUPERTYPE(left_ptr, Expression) || !CHECK_ELEMENT_SUPERTYPE(right_ptr, Expression))
     {
         return 0;
     }
 
-    static const ElementInterface vtable = { print_BinOp, element_size_BinOp, update_on_realloc_BinOp };
+    static const ElementInterface vtable = { print_BinOp, element_size_BinOp, compute_ptr_BinOp };
     static Element base = { 0, 0, &vtable};
     memcpy(&binop_elem->base, &base, sizeof(base));
 
     binop_elem->base.line = line;
     binop_elem->base.tag = SET_ELEMENT_TYPE(Expression, BinOp_expr);
     binop_elem->op = op;
-    binop_elem->left = left;
-    binop_elem->right = right;
+    binop_elem->left = (void*)left;
+    binop_elem->right = (void*)right;
     return 1;
 }
 
@@ -183,32 +186,35 @@ size_t element_size_BinOp(const Element* binop_elem)
 }
 
 // Binops hold pointers to their children, which must be updated on realloc.
-void update_on_realloc_BinOp(Element* binop_elem, long long ptr_diff)
+void compute_ptr_BinOp(Element* binop_elem, void* ast_base)
 {
     BinOp* bin_op_element = (BinOp*) binop_elem;
-    UPDATE_PTR(bin_op_element->left);
-    UPDATE_PTR(bin_op_element->right);
+    bin_op_element->left = OFFSET_PTR((size_t)bin_op_element->left);
+    bin_op_element->right = OFFSET_PTR((size_t)bin_op_element->right);
+    compute_ptr(bin_op_element->left, ast_base);
+    compute_ptr(bin_op_element->right, ast_base);
 }
 
 ///////////////////////////////////////////////
 /// UNOP FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_UnOp(UnOp* unop_elem, token_type op, void* operand, int line)
+int init_UnOp(UnOp* unop_elem, token_type op, size_t operand, void* ast_base, int line)
 {
-    if (!CHECK_ELEMENT_SUPERTYPE(operand, Expression))
+    void* operand_ptr = OFFSET_PTR(operand);
+    if (!CHECK_ELEMENT_SUPERTYPE(operand_ptr, Expression))
     {
         return 0;
     }
 
-    static const ElementInterface vtable = { print_UnOp, element_size_UnOp, update_on_realloc_UnOp };
+    static const ElementInterface vtable = { print_UnOp, element_size_UnOp, compute_ptr_UnOp };
     static Element base = { 0, 0, &vtable};
     memcpy(&unop_elem->base, &base, sizeof(base));
 
     unop_elem->base.line = line;
     unop_elem->base.tag = SET_ELEMENT_TYPE(Expression, UnOp_expr);
     unop_elem->op = op;
-    unop_elem->operand = operand;
+    unop_elem->operand = (void*)operand;
     return 1;
 }
 void print_UnOp(const Element* unop_elem, int depth)
@@ -229,30 +235,32 @@ size_t element_size_UnOp(const Element* unop_elem)
 }
 
 // Unops hold pointers to their children, which must be updated on realloc.
-void update_on_realloc_UnOp(Element* unop_elem, long long ptr_diff)
+void compute_ptr_UnOp(Element* unop_elem, void* ast_base)
 {
     UnOp* un_op_element = (UnOp*) unop_elem;
-    UPDATE_PTR(un_op_element->operand);
+    un_op_element->operand = OFFSET_PTR((size_t)un_op_element->operand);
+    compute_ptr(un_op_element->operand, ast_base);
 }
 
 ///////////////////////////////////////////////
 /// GROUPING FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_Grouping(Grouping* grouping_elem, void* expression, int line)
+int init_Grouping(Grouping* grouping_elem, size_t expression, void* ast_base, int line)
 {
-    if (!CHECK_ELEMENT_SUPERTYPE(expression, Expression))
+    void* expression_ptr = OFFSET_PTR(expression);
+    if (!CHECK_ELEMENT_SUPERTYPE(expression_ptr, Expression))
     {
         return 0;
     }
 
-    static const ElementInterface vtable = { print_Grouping, element_size_Grouping, update_on_realloc_Grouping };
+    static const ElementInterface vtable = { print_Grouping, element_size_Grouping, compute_ptr_Grouping };
     static Element base = { 0, 0, &vtable};
     memcpy(&grouping_elem->base, &base, sizeof(base));
 
     grouping_elem->base.line = line;
     grouping_elem->base.tag = SET_ELEMENT_TYPE(Expression, Grouping_expr);
-    grouping_elem->expression = expression;
+    grouping_elem->expression = (void*)expression;
     return 1;
 }
 void print_Grouping(const Element* grouping_elem, int depth)
@@ -273,10 +281,11 @@ size_t element_size_Grouping(const Element* grouping_elem)
 }
 
 // Groupings hold pointers to their children, which must be updated on realloc.
-void update_on_realloc_Grouping(Element* grouping_elem, long long ptr_diff)
+void compute_ptr_Grouping(Element* grouping_elem, void* ast_base)
 {
     Grouping* grouping_element = (Grouping*) grouping_elem;
-    UPDATE_PTR(grouping_element->expression);
+    grouping_element->expression = OFFSET_PTR((size_t)grouping_element->expression);
+    compute_ptr(grouping_element->expression, ast_base);
 }
 
 ///////////////////////////////////////////////
@@ -293,7 +302,7 @@ int init_StatementList(StatementList* statement_list_elem, statement_array* arra
         }
     }
 
-    static const ElementInterface vtable = { print_StatementList, element_size_StatementList, update_on_realloc_StatementList };
+    static const ElementInterface vtable = { print_StatementList, element_size_StatementList, compute_ptr_StatementList };
     static Element base = { 0, 0, &vtable};
     memcpy(&statement_list_elem->base, &base, sizeof(base));
 
@@ -302,10 +311,10 @@ int init_StatementList(StatementList* statement_list_elem, statement_array* arra
     statement_list_elem->size = array->used;
 
     // Insert elements into memory after the struct itself
-    void** statement_ptrs = (void**)(statement_list_elem + sizeof(StatementList));
+    void** statement_ptrs = (void**)((char*)statement_list_elem + sizeof(StatementList));
     for (size_t i = 0; i < array->used; i++)
     {
-        *statement_ptrs++ = array->statements[i] + (char*)(ast_base);
+        *statement_ptrs++ = (void*)array->statements[i];
     }
 
     return 1;
@@ -317,11 +326,14 @@ void print_StatementList(const Element* statement_list_elem, int depth)
     AST_PRINT_PAD(depth);
     printf("StatementList {\n");
     
-    const void** statement_ptrs = (const void**)(statement_list_element + sizeof(StatementList));
+    const void** statement_ptrs = (const void**)((const char*)statement_list_element + sizeof(StatementList));
     for (size_t i = 0; i < statement_list_element->size; i++)
     {
         print_element(*statement_ptrs++, depth+1);
-        printf("\n");
+        if (i != statement_list_element->size - 1)
+        {
+            printf(",\n");
+        }
     }
     
     printf("\n");
@@ -335,14 +347,15 @@ size_t element_size_StatementList(const Element* statement_list_elem)
     return sizeof(StatementList) + statement_list_element->size * sizeof(void*);
 }
 
-void update_on_realloc_StatementList(Element* statement_list_elem, long long ptr_diff)
+void compute_ptr_StatementList(Element* statement_list_elem, void* ast_base)
 {
     StatementList* statement_list_element = (StatementList*)statement_list_elem;
-    void** statement_ptrs = (void**)(statement_list_element + sizeof(StatementList));
+    void** statement_ptrs = (void**)((char*)statement_list_element + sizeof(StatementList));
     
     for (size_t i = 0; i < statement_list_element->size; i++)
     {
-        UPDATE_PTR(*statement_ptrs);
+        *statement_ptrs = OFFSET_PTR((size_t)*statement_ptrs);
+        compute_ptr(*statement_ptrs++, ast_base);
     }
 }
 
@@ -377,20 +390,22 @@ void print_Assignment(const Element* assignment_elem, int depth)
 /// PRINT FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_Print(Print* print_elem, void* expression, int line)
+int init_Print(Print* print_elem, char break_line, size_t expression, void* ast_base, int line)
 {
-    if (!CHECK_ELEMENT_SUPERTYPE(expression, Expression))
+    void* expression_ptr = OFFSET_PTR(expression);
+    if (!CHECK_ELEMENT_SUPERTYPE(expression_ptr, Expression))
     {
         return 0;
     }
 
-    static const ElementInterface vtable = { print_Print, element_size_Print, update_on_realloc_Print };
+    static const ElementInterface vtable = { print_Print, element_size_Print, compute_ptr_Print };
     static Element base = { 0, 0, &vtable};
     memcpy(&print_elem->base, &base, sizeof(base));
 
     print_elem->base.line = line;
     print_elem->base.tag = SET_ELEMENT_TYPE(Statement, Print_stmt);
-    print_elem->expression = expression;
+    print_elem->expression = (void*)expression;
+    print_elem->break_line = break_line;
     return 1;
 }
 
@@ -398,7 +413,7 @@ void print_Print(const Element* print_elem, int depth)
 {
     const Print* prnt_element = (const Print*)print_elem;
     AST_PRINT_PAD(depth);
-    printf("Print {\n");
+    printf((prnt_element->break_line) ? "Print {\n" : "Println {\n");
     print_element(prnt_element->expression, depth+1);
     printf("\n");
     AST_PRINT_PAD(depth);
@@ -410,15 +425,101 @@ size_t element_size_Print(const Element* print_elem)
     return sizeof(Print);
 }
 
-void update_on_realloc_Print(Element* print_elem, long long ptr_diff)
+void compute_ptr_Print(Element* print_elem, void* ast_base)
 {
     Print* print_element = (Print*) print_elem;
-    UPDATE_PTR(print_element->expression);
+    print_element->expression = OFFSET_PTR((size_t)print_element->expression);
+    compute_ptr(print_element->expression, ast_base);
 }
 
 ///////////////////////////////////////////////
 /// IF FUNCTIONS
 ///////////////////////////////////////////////
+
+int init_If(If* if_elem, size_t condition, size_t then_branch, size_t else_branch, void* ast_base, int line)
+{
+    void* condition_ptr = OFFSET_PTR(condition);
+    void* then_branch_ptr = OFFSET_PTR(then_branch);
+    void* else_branch_ptr = OFFSET_PTR(else_branch);
+
+    if (!CHECK_ELEMENT_SUPERTYPE(condition_ptr, Expression))
+    {
+        return 0;
+    }
+
+    if (!CHECK_ELEMENT_SUPERTYPE(then_branch_ptr, Statement) || !CHECK_ELEMENT_TYPE(then_branch_ptr, StatementList_stmt))
+    {
+        return 0;
+    }
+
+    if (else_branch != (size_t)(-1) && (!CHECK_ELEMENT_SUPERTYPE(else_branch_ptr, Statement) || !CHECK_ELEMENT_TYPE(else_branch_ptr, StatementList_stmt)))
+    {
+        return 0;
+    }
+
+    static const ElementInterface vtable = { print_If, element_size_If, compute_ptr_If };
+    static Element base = { 0, 0, &vtable};
+    memcpy(&if_elem->base, &base, sizeof(base));
+
+    if_elem->base.line = line;
+    if_elem->base.tag = SET_ELEMENT_TYPE(Statement, If_stmt);
+    if_elem->condition = (void*)condition;
+    if_elem->then_branch = (void*)then_branch;
+    if_elem->else_branch = (void*)else_branch;
+    return 1;
+}
+
+void print_If(const Element* if_elem, int depth)
+{
+    const If* if_element = (const If*)if_elem;
+    AST_PRINT_PAD(depth);
+    printf("If {\n");
+    AST_PRINT_PAD(depth+1);
+    printf("Condition {\n");
+    print_element(if_element->condition, depth+2);
+    printf(",\n");
+    AST_PRINT_PAD(depth+1);
+    printf("Then {\n");
+    print_element(if_element->then_branch, depth+2);
+
+    if (if_element->else_branch != NULL)
+    {
+        printf(",\n");
+        AST_PRINT_PAD(depth+1);
+        printf("Else {\n");
+        print_element(if_element->else_branch, depth+2);
+    }
+
+    printf("\n");
+    AST_PRINT_PAD(depth+1);
+    printf("}\n");
+    AST_PRINT_PAD(depth);
+    printf("}");
+}
+
+size_t element_size_If(const Element* if_elem)
+{
+    return sizeof(If);
+}
+
+void compute_ptr_If(Element* if_elem, void* ast_base)
+{
+    If* if_element = (If*)if_elem;
+    if_element->condition = OFFSET_PTR((size_t)if_element->condition);
+    if_element->then_branch = OFFSET_PTR((size_t)if_element->then_branch);
+    compute_ptr(if_element->condition, ast_base);
+    compute_ptr(if_element->then_branch, ast_base);
+
+    if (if_element->else_branch != (void*)-1)
+    {
+        if_element->else_branch = OFFSET_PTR((size_t)if_element->else_branch);
+        compute_ptr(if_element->else_branch, ast_base);
+    }
+    else
+    {
+        if_element->else_branch = NULL;
+    }
+}
 
 ///////////////////////////////////////////////
 /// FOR FUNCTIONS

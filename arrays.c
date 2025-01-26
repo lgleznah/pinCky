@@ -57,7 +57,7 @@ void free_ast_array(ast_array* array)
     array->size = 0;
 }
 
-void* allocate_ast_array(ast_array* array, size_t bytes)
+size_t allocate_ast_array(ast_array* array, size_t bytes)
 {
     // Realloc if new size exceeds current limit
     if (array->used + bytes > array->size)
@@ -69,23 +69,14 @@ void* allocate_ast_array(ast_array* array, size_t bytes)
             printf("Realloc failed!\n");
             exit(1);
         }
-
-        // Once realloc'd, ALL pointers within the AST must be updated.
-        long long ptr_diff = (long long)(tmp) - (long long)(array->ast_data);
         array->ast_data = tmp;
-        size_t processed_bytes = 0;
-        while (processed_bytes < array->used)
-        {
-            Element* element = (Element*) ((long long)(array->ast_data) + processed_bytes);
-            update_on_realloc(element, ptr_diff);
-            processed_bytes += element_size(element);
-        }
     }
 
     // Assign memory address
-    void* addr = (void*)((long long)(array->ast_data) + array->used);
+    size_t offset = array->used;
     array->used += bytes;
-    return addr;
+    
+    return offset;
 }
 
 void init_interpreter_memory(interpreter_memory* memory, size_t initial_size)

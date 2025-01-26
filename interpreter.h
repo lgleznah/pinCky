@@ -11,7 +11,7 @@ typedef enum
     STRING_VALUE,
 } result_type;
 
-static char* type_names[] = {"int", "float", "bool", "string"};
+static char* type_names[] = {"none", "int", "float", "bool", "string"};
 
 typedef struct
 {
@@ -26,6 +26,7 @@ typedef struct
 
 static string true_string = {.string_value = "true", .length = sizeof("true")-1};
 static string false_string = {.string_value = "false", .length = sizeof("false")-1};
+static string none_string = {.string_value = "none", .length = sizeof("none")-1};
 
 typedef enum
 {

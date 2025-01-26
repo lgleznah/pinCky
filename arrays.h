@@ -23,7 +23,7 @@ typedef struct
 
 void init_ast_array(ast_array* array, size_t initial_size);
 void free_ast_array(ast_array* array);
-void* allocate_ast_array(ast_array* array, size_t bytes);
+size_t allocate_ast_array(ast_array* array, size_t bytes);
 
 typedef struct
 {

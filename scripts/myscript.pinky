@@ -1,3 +1,9 @@
-print 1 + 2.0
-print 3 * 2^2
-print("test")
+println 1 + 2
+println 3 * 2^2
+println "test" + 34
+println "asd"
+
+if 1+2 > 1 then
+    println("Condition OK!")
+    println("Another one")
+end

@@ -18,20 +18,21 @@ void print_ast(void* node);
 
 // Functions for AST parsing
 // Expression-parsing functions
-void* expr(parser* parser);
-void* or_logical(parser* parser);
-void* and_logical(parser* parser);
-void* equality(parser* parser);
-void* comparison(parser* parser);
-void* addition(parser* parser);
-void* multiplication(parser* parser);
-void* modulo(parser* parser);
-void* exponent(parser* parser);
-void* unary(parser* parser);
-void* primary(parser* parser);
+size_t expr(parser* parser);
+size_t or_logical(parser* parser);
+size_t and_logical(parser* parser);
+size_t equality(parser* parser);
+size_t comparison(parser* parser);
+size_t addition(parser* parser);
+size_t multiplication(parser* parser);
+size_t modulo(parser* parser);
+size_t exponent(parser* parser);
+size_t unary(parser* parser);
+size_t primary(parser* parser);
 
 // Statement-parsing functions
-void* program(parser* parser);
-void* stmts(parser* parser);
-void* stmt(parser* parser);
-void* print_stmt(parser* parser);
+size_t program(parser* parser);
+size_t stmts(parser* parser);
+size_t stmt(parser* parser);
+size_t print_stmt(parser* parser, char break_line);
+size_t if_stmt(parser* parser);

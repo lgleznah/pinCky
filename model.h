@@ -39,6 +39,7 @@ enum SUPERTYPES
 
 #define SET_ELEMENT_TYPE(supertype, subtype)           (((supertype) << 7) | (subtype))
 #define CHECK_ELEMENT_SUPERTYPE(element, supertype)    (((((Element*)(element))->tag & 0x80) >> 7) == (supertype))
+#define CHECK_ELEMENT_TYPE(element, type)              (((((Element*)(element))->tag & 0x7F)) == (type))
 #define GET_ELEMENT_SUPERTYPE(element)                 ((((Element*)(element))->tag & 0x80) >> 7)
 #define GET_ELEMENT_TYPE(element)                      ((((Element*)(element))->tag & 0x7F))
 #define GET_ELEMENT_LINE(element)                      ((((Element*)(element))->line))
@@ -61,12 +62,12 @@ typedef struct ElementInterface
 {
     void (*print_element) (const Element* element, int depth);
     size_t (*element_size) (const Element* element);
-    void (*update_on_realloc) (Element* element, long long ptr_diff);
+    void (*compute_ptr) (Element* element, void* ast_base);
 } ElementInterface;
 
 inline void print_element(const Element* element, int depth) { element->vtable->print_element(element, depth); }
 inline size_t element_size(const Element* element) { return element->vtable->element_size(element); }
-inline void update_on_realloc(Element* element, long long ptr_diff) { element->vtable->update_on_realloc(element, ptr_diff); }
+inline void compute_ptr(Element* element, void* ast_base) { element->vtable->compute_ptr(element, ast_base); }
 
 // Numbers like 42
 typedef struct Integer
@@ -78,7 +79,7 @@ typedef struct Integer
 int init_Integer(Integer* integer_elem, int value, int line);
 void print_Integer(const Element* integer_elem, int depth);
 size_t element_size_Integer(const Element* integer_elem);
-void update_on_realloc_Integer(Element* integer_elem, long long ptr_diff);
+void compute_ptr_Integer(Element* integer_elem, void* ast_base);
 
 // Numbers like 4.20
 typedef struct Float
@@ -90,7 +91,7 @@ typedef struct Float
 int init_Float(Float* float_elem, double value, int line);
 void print_Float(const Element* float_elem, int depth);
 size_t element_size_Float(const Element* float_elem);
-void update_on_realloc_Float(Element* float_elem, long long ptr_diff);
+void compute_ptr_Float(Element* float_elem, void* ast_base);
 
 
 // Just true or false
@@ -103,7 +104,7 @@ typedef struct Bool
 int init_Bool(Bool* bool_elem, char value, int line);
 void print_Bool(const Element* bool_elem, int depth);
 size_t element_size_Bool(const Element* bool_elem);
-void update_on_realloc_Bool(Element* bool_elem, long long ptr_diff);
+void compute_ptr_Bool(Element* bool_elem, void* ast_base);
 
 // Text strings like "foobar"
 typedef struct String
@@ -116,7 +117,7 @@ typedef struct String
 int init_String(String* string_elem, char* string, int length, int line);
 void print_String(const Element* string_elem, int depth);
 size_t element_size_String(const Element* string_elem);
-void update_on_realloc_String(Element* string_elem, long long ptr_diff);
+void compute_ptr_String(Element* string_elem, void* ast_base);
 
 // Operations like x + y
 typedef struct BinOp
@@ -127,10 +128,10 @@ typedef struct BinOp
     void* right;
 } BinOp;
 
-int init_BinOp(BinOp* binop_elem, token_type op, void* left, void* right, int line);
+int init_BinOp(BinOp* binop_elem, token_type op, size_t left, size_t right, void* ast_base, int line);
 void print_BinOp(const Element* binop_elem, int depth);
 size_t element_size_BinOp(const Element* binop_elem);
-void update_on_realloc_BinOp(Element* binop_elem, long long ptr_diff);
+void compute_ptr_BinOp(Element* binop_elem, void* ast_base);
 
 // Operations like -y
 typedef struct UnOp
@@ -140,10 +141,10 @@ typedef struct UnOp
     void* operand;
 } UnOp;
 
-int init_UnOp(UnOp* unop_elem, token_type op, void* operand, int line);
+int init_UnOp(UnOp* unop_elem, token_type op, size_t operand, void* ast_base, int line);
 void print_UnOp(const Element* unop_elem, int depth);
 size_t element_size_UnOp(const Element* unop_elem);
-void update_on_realloc_UnOp(Element* unop_elem, long long ptr_diff);
+void compute_ptr_UnOp(Element* unop_elem, void* ast_base);
 
 // Parenthesized expressions ( <expr> )
 typedef struct Grouping
@@ -152,10 +153,10 @@ typedef struct Grouping
     void* expression;
 } Grouping;
 
-int init_Grouping(Grouping* grouping_elem, void* expression, int line);
+int init_Grouping(Grouping* grouping_elem, size_t expression, void* ast_base, int line);
 void print_Grouping(const Element* grouping_elem, int depth);
 size_t element_size_Grouping(const Element* grouping_elem);
-void update_on_realloc_Grouping(Element* grouping_elem, long long ptr_diff);
+void compute_ptr_Grouping(Element* grouping_elem, void* ast_base);
 
 // List of statements
 typedef struct StatementList
@@ -167,7 +168,7 @@ typedef struct StatementList
 int init_StatementList(StatementList* statement_list_elem, statement_array* array, void* ast_base, int line);
 void print_StatementList(const Element* statement_list_elem, int depth);
 size_t element_size_StatementList(const Element* statement_list_elem);
-void update_on_realloc_StatementList(Element* statement_list_elem, long long ptr_diff);
+void compute_ptr_StatementList(Element* statement_list_elem, void* ast_base);
 
 // While loops
 typedef struct While
@@ -178,7 +179,7 @@ typedef struct While
 int init_While(While* while_elem, int line);
 void print_While(const Element* while_elem, int depth);
 size_t element_size_While(const Element* while_elem);
-void update_on_realloc_While(Element* while_elem, long long ptr_diff);
+void compute_ptr_While(Element* while_elem, void* ast_base);
 
 // Assignment statements
 typedef struct Assignment
@@ -189,30 +190,34 @@ typedef struct Assignment
 int init_Assignment(Assignment* assignment_elem, int line);
 void print_Assignment(const Element* assignment_elem, int depth);
 size_t element_size_Assignment(const Element* assignment_elem);
-void update_on_realloc_Assignment(Element* assignment_elem, long long ptr_diff);
+void compute_ptr_Assignment(Element* assignment_elem, void* ast_base);
 
 // Print statements
 typedef struct Print
 {
     Element base;
+    char break_line;
     void* expression;
 } Print;
 
-int init_Print(Print* print_elem, void* expression, int line);
+int init_Print(Print* print_elem, char break_line, size_t expression, void* ast_base, int line);
 void print_Print(const Element* print_elem, int depth);
 size_t element_size_Print(const Element* print_elem);
-void update_on_realloc_Print(Element* print_elem, long long ptr_diff);
+void compute_ptr_Print(Element* print_elem, void* ast_base);
 
 // If-then-else statements
 typedef struct If
 {
     Element base;
+    void* condition;
+    void* then_branch;
+    void* else_branch;
 } If;
 
-int init_If(If* if_elem, int line);
+int init_If(If* if_elem, size_t condition, size_t then_branch, size_t else_branch, void* ast_base, int line);
 void print_If(const Element* if_elem, int depth);
 size_t element_size_If(const Element* if_elem);
-void update_on_realloc_If(Element* if_elem, long long ptr_diff);
+void compute_ptr_If(Element* if_elem, void* ast_base);
 
 // For-loop statements
 typedef struct For
@@ -223,4 +228,4 @@ typedef struct For
 int init_For(For* for_elem, int line);
 void print_For(const Element* for_elem, int depth);
 size_t element_size_For(const Element* for_elem);
-void update_on_realloc_For(Element* for_elem, long long ptr_diff);
+void compute_ptr_For(Element* for_elem, void* ast_base);
