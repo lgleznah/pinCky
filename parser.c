@@ -41,19 +41,25 @@ token* parser_peek(const parser* parser)
 // Check if next token matches the expected type
 int parser_is_next(const parser* parser, const int token_type)
 {
-    if (parser->curr_token >= parser->tokens->size)
+    if (parser->curr_token >= parser->tokens->used)
     {
         return 0;
     }
     return parser->tokens->data[parser->curr_token+1].type == token_type;
 }
 
+// Return previous token
+token* parser_previous_token(const parser* parser)
+{
+    return &parser->tokens->data[parser->curr_token-1];
+}
+
 // Test if current token is expected type; otherwise error-out
 token* parser_expect(parser* parser, const int token_type)
 {
-    if (parser->curr_token >= parser->tokens->size)
+    if (parser->curr_token >= parser->tokens->used)
     {
-        PRINT_SYNTAX_ERROR_AND_QUIT(parser_peek(parser)->line, "Found token '%s' at end of parsing", token_type_str[token_type]);
+        PRINT_SYNTAX_ERROR_AND_QUIT(parser_previous_token(parser)->line, "Found token '%s' at end of parsing", token_type_str[token_type]);
     }
     if (parser->tokens->data[parser->curr_token].type != token_type)
     {
@@ -65,7 +71,7 @@ token* parser_expect(parser* parser, const int token_type)
 // Check if current token matches expected type and return it, otherwise return NULL
 token* parser_match(parser* parser, const int token_type)
 {
-    if (parser->curr_token >= parser->tokens->size)
+    if (parser->curr_token >= parser->tokens->used)
     {
         return NULL;
     }
@@ -76,12 +82,6 @@ token* parser_match(parser* parser, const int token_type)
         return token;
     }
     return NULL;
-}
-
-// Return previous token
-token* parser_previous_token(const parser* parser)
-{
-    return &parser->tokens->data[parser->curr_token-1];
 }
 
 // Parser functions
@@ -110,7 +110,7 @@ size_t stmts(parser* parser)
     statement_array array;
     init_statement_array(&array, 65536);
 
-    while (parser->curr_token < parser->tokens->used && !parser_is_next(parser, TOK_ELSE) && !parser_is_next(parser, TOK_END))
+    while (parser->curr_token < parser->tokens->used && !(parser_peek(parser)->type == TOK_ELSE) && !(parser_peek(parser)->type == TOK_END))
     {
         size_t result = stmt(parser);
         if (result == -1)
@@ -149,6 +149,17 @@ size_t stmt(parser* parser)
     if (parser_peek(parser)->type == TOK_IF)
     {
         return if_stmt(parser);
+    }
+
+    // If none of the above, this statement is an assignment or a function call
+    size_t lhs = expr(parser);
+    if (parser_match(parser, TOK_ASSIGN))
+    {
+        int line = parser_previous_token(parser)->line;
+        size_t rhs = expr(parser);
+        size_t assignmnent = allocate_ast_array(&parser->ast_array, sizeof(Assignment));
+        init_Assignment(OFFSET_PTR(assignmnent), lhs, rhs, parser->ast_array.ast_data, line);
+        return assignmnent;
     }
 
     return -1;
@@ -327,7 +338,7 @@ size_t unary(parser* parser)
     return primary(parser);
 }
 
-// <primary>  ::=  <integer> | <float> | <bool> | <string> | '(' <expr> ')'
+// <primary>  ::=  <integer> | <float> | <bool> | <string> | <identifier> | '(' <expr> ')'
 size_t primary(parser* parser)
 {
     char num_string[128];
@@ -386,8 +397,10 @@ size_t primary(parser* parser)
             return grouping;
         }
     }
-    else
-    {
-        PRINT_SYNTAX_ERROR_AND_QUIT(parser_previous_token(parser)->line, "Expected number or '(', found '%s'\n", token_symbols[parser_previous_token(parser)->type]);
-    }
+
+    // If none of the above, it is an identifier
+    token* identifier_token = parser_expect(parser, TOK_IDENTIFIER);
+    size_t identifier = allocate_ast_array(&parser->ast_array, sizeof(Identifier));
+    init_Identifier(OFFSET_PTR(identifier), identifier_token->start, identifier_token->length, identifier_token->line);
+    return identifier;
 }

@@ -16,6 +16,7 @@ enum EXPRESSION_TYPES
     Float_expr,
     Bool_expr,
     String_expr,
+    Identifier_expr,
     BinOp_expr,
     UnOp_expr,
     Grouping_expr
@@ -119,6 +120,19 @@ void print_String(const Element* string_elem, int depth);
 size_t element_size_String(const Element* string_elem);
 void compute_ptr_String(Element* string_elem, void* ast_base);
 
+// Variable names like "x", "PI", "_score", "start_vel", "numLives"
+typedef struct Identifier
+{
+    Element base;
+    char* name;
+    int length;
+} Identifier;
+
+int init_Identifier(Identifier* identifier_elem, char* name, int length, int line);
+void print_Identifier(const Element* identifier_elem, int depth);
+size_t element_size_Identifier(const Element* identifier_elem);
+void compute_ptr_Identifier(Element* identifier_elem, void* ast_base);
+
 // Operations like x + y
 typedef struct BinOp
 {
@@ -185,9 +199,11 @@ void compute_ptr_While(Element* while_elem, void* ast_base);
 typedef struct Assignment
 {
     Element base;
+    void* lhs;
+    void* rhs;
 } Assignment;
 
-int init_Assignment(Assignment* assignment_elem, int line);
+int init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, void* ast_base, int line);
 void print_Assignment(const Element* assignment_elem, int depth);
 size_t element_size_Assignment(const Element* assignment_elem);
 void compute_ptr_Assignment(Element* assignment_elem, void* ast_base);

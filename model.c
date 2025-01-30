@@ -142,6 +142,41 @@ size_t element_size_String(const Element* string_elem)
 void compute_ptr_String(Element* string_elem, void* ast_base) {}
 
 ///////////////////////////////////////////////
+/// IDENTIFIER FUNCTIONS
+///////////////////////////////////////////////
+
+int init_Identifier(Identifier* identifier_elem, char* name, int length, int line)
+{
+    static const ElementInterface vtable = { print_Identifier, element_size_Identifier, compute_ptr_Identifier };
+    static Element base = { 0, 0, &vtable};
+    memcpy(&identifier_elem->base, &base, sizeof(base));
+
+    identifier_elem->base.line = line;
+    identifier_elem->base.tag = SET_ELEMENT_TYPE(Expression, String_expr);
+    identifier_elem->name = name;
+    identifier_elem->length = length;
+    return 1;
+}
+
+void print_Identifier(const Element* identifier_elem, int depth)
+{
+    const Identifier* identifier_element = (const Identifier*)identifier_elem;
+    AST_PRINT_PAD(depth);
+    printf("Identifier[%.*s]", identifier_element->length, identifier_element->name);
+}
+
+// Strings are constant-sized in the AST data array. Just return their size
+size_t element_size_Identifier(const Element* identifier_elem)
+{
+    return sizeof(Identifier);
+}
+
+// Identifiers hold no pointers to be updated upon a realloc. Do nothing. Do note that, while identifiers
+// DO hold a pointer to their contents, these are not located in the AST array, but rather in the
+// source file array.
+void compute_ptr_Identifier(Element* identifier_elem, void* ast_base) {}
+
+///////////////////////////////////////////////
 /// BINOP FUNCTIONS
 ///////////////////////////////////////////////
 
@@ -376,14 +411,56 @@ void print_While(const Element* while_elem, int depth)
 /// ASSIGNMENT FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_Assignment(Assignment* assignment_elem, int line)
+int init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, void* ast_base, int line)
 {
-    return -1;
+    void* lhs_ptr = OFFSET_PTR(lhs);
+    void* rhs_ptr = OFFSET_PTR(rhs);
+    if (!CHECK_ELEMENT_SUPERTYPE(lhs_ptr, Expression))
+    {
+        return 0;
+    }
+    if (!CHECK_ELEMENT_SUPERTYPE(rhs_ptr, Expression))
+    {
+        return 0;
+    }
 
+    static const ElementInterface vtable = { print_Assignment, element_size_Assignment, compute_ptr_Assignment };
+    static Element base = { 0, 0, &vtable };
+    memcpy(&assignment_elem->base, &base, sizeof(base));
+
+    assignment_elem->base.line = line;
+    assignment_elem->base.tag = SET_ELEMENT_TYPE(Statement, Assignment_stmt);
+    assignment_elem->lhs = (void*)lhs;
+    assignment_elem->rhs = (void*)rhs;
+
+    return 1;
 }
+
 void print_Assignment(const Element* assignment_elem, int depth)
 {
-    
+    const Assignment* assignment_element = (const Assignment*)assignment_elem;
+    AST_PRINT_PAD(depth);
+    printf("Assignment {\n");
+    print_element(assignment_element->lhs, depth+1);
+    printf(",\n");
+    print_element(assignment_element->rhs, depth+1);
+    printf("\n");
+    AST_PRINT_PAD(depth);
+    printf("}");
+}
+
+size_t element_size_Assignment(const Element* assignment_elem)
+{
+    return sizeof(Assignment);
+}
+
+void compute_ptr_Assignment(Element* assignment_elem, void* ast_base)
+{
+    Assignment* assignment_element = (Assignment*) assignment_elem;
+    assignment_element->lhs = OFFSET_PTR((size_t)assignment_element->lhs);
+    assignment_element->rhs = OFFSET_PTR((size_t)assignment_element->rhs);
+    compute_ptr(assignment_element->lhs, ast_base);
+    compute_ptr(assignment_element->rhs, ast_base);
 }
 
 ///////////////////////////////////////////////
@@ -406,6 +483,7 @@ int init_Print(Print* print_elem, char break_line, size_t expression, void* ast_
     print_elem->base.tag = SET_ELEMENT_TYPE(Statement, Print_stmt);
     print_elem->expression = (void*)expression;
     print_elem->break_line = break_line;
+    
     return 1;
 }
 
@@ -489,7 +567,6 @@ void print_If(const Element* if_elem, int depth)
         printf("Else {\n");
         print_element(if_element->else_branch, depth+2);
     }
-
     printf("\n");
     AST_PRINT_PAD(depth+1);
     printf("}\n");
