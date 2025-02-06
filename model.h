@@ -124,8 +124,7 @@ void compute_ptr_String(Element* string_elem, void* ast_base);
 typedef struct Identifier
 {
     Element base;
-    char* name;
-    int length;
+    string_type name;
 } Identifier;
 
 int init_Identifier(Identifier* identifier_elem, char* name, int length, int line);

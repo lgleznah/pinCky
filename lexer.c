@@ -6,7 +6,7 @@
 #include "utils.h"
 
 #define ADD_TOKEN(token_list, token_type) do { \
-    insert_token_array(token_list, token_type, lexer->line, lexer->column, &lexer->buffer[lexer->start], lexer->curr - lexer->start); \
+    insert_token_array(token_list, (token){.type=token_type, .line=lexer->line, .column=lexer->column, .token.string_value=&lexer->buffer[lexer->start], .token.length=lexer->curr - lexer->start}); \
     } while(0)
 
 #define BOUNDS_CHECK(return_if_fail) do {if (lexer->curr >= lexer->length) return (return_if_fail);} while (0)

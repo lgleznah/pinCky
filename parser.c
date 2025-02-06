@@ -6,18 +6,18 @@
 #include "lexer.h"
 #include "utils.h"
 
-#define OFFSET_PTR(ptr) ((void*)(ptr + (char*)(parser->ast_array.ast_data)))
+#define OFFSET_PTR(ptr) ((void*)(ptr + (char*)(parser->ast_array.data)))
 
 void init_parser(parser* parser, token_array* tokens)
 {
     parser->tokens = tokens;
     parser->curr_token = 0;
-    init_ast_array(&parser->ast_array, 0);
+    init_vsd_array(&parser->ast_array, 0);
 }
 
 void free_parser(parser* parser)
 {
-    free_ast_array(&parser->ast_array);
+    free_vsd_array(&parser->ast_array);
 }
 
 void print_ast(const void* node)
@@ -88,8 +88,8 @@ token* parser_match(parser* parser, const int token_type)
 void* parse(parser* parser)
 {
     size_t ast = program(parser);
-    compute_ptr((Element*)(ast + (char*)parser->ast_array.ast_data), parser->ast_array.ast_data);
-    return ast + (char*)(parser->ast_array.ast_data);
+    compute_ptr((Element*)(ast + (char*)parser->ast_array.data), parser->ast_array.data);
+    return ast + (char*)(parser->ast_array.data);
 }
 
 // <program> ::= <stmts>
@@ -125,9 +125,9 @@ size_t stmts(parser* parser)
         PRINT_SYNTAX_ERROR_AND_QUIT(parser_previous_token(parser)->line, "Empty statement list is not allowed");
     }
 
-    size_t stmts = allocate_ast_array(&parser->ast_array, sizeof(StatementList) + array.used * sizeof(void*));
-    void* first_statement_ptr = OFFSET_PTR(array.statements[0]);
-    init_StatementList(OFFSET_PTR(stmts), &array, parser->ast_array.ast_data, GET_ELEMENT_LINE(first_statement_ptr));
+    size_t stmts = allocate_vsd_array(&parser->ast_array, sizeof(StatementList) + array.used * sizeof(void*));
+    void* first_statement_ptr = OFFSET_PTR(array.data[0]);
+    init_StatementList(OFFSET_PTR(stmts), &array, parser->ast_array.data, GET_ELEMENT_LINE(first_statement_ptr));
     
     free_statement_array(&array);
     return stmts;
@@ -157,8 +157,8 @@ size_t stmt(parser* parser)
     {
         int line = parser_previous_token(parser)->line;
         size_t rhs = expr(parser);
-        size_t assignmnent = allocate_ast_array(&parser->ast_array, sizeof(Assignment));
-        init_Assignment(OFFSET_PTR(assignmnent), lhs, rhs, parser->ast_array.ast_data, line);
+        size_t assignmnent = allocate_vsd_array(&parser->ast_array, sizeof(Assignment));
+        init_Assignment(OFFSET_PTR(assignmnent), lhs, rhs, parser->ast_array.data, line);
         return assignmnent;
     }
 
@@ -171,8 +171,8 @@ size_t print_stmt(parser* parser, char break_line)
     if (parser_match(parser, TOK_PRINT) || parser_match(parser, TOK_PRINTLN))
     {
         size_t result = expr(parser);
-        size_t print = allocate_ast_array(&parser->ast_array, sizeof(Print));
-        init_Print(OFFSET_PTR(print), break_line, result, parser->ast_array.ast_data, parser_previous_token(parser)->line);
+        size_t print = allocate_vsd_array(&parser->ast_array, sizeof(Print));
+        init_Print(OFFSET_PTR(print), break_line, result, parser->ast_array.data, parser_previous_token(parser)->line);
         return print;
     }
 
@@ -196,9 +196,9 @@ size_t if_stmt(parser* parser)
 
     parser_expect(parser, TOK_END);
 
-    size_t result = allocate_ast_array(&parser->ast_array, sizeof(If));
+    size_t result = allocate_vsd_array(&parser->ast_array, sizeof(If));
     void* condition_ptr = OFFSET_PTR(condition);
-    init_If(OFFSET_PTR(result), condition, then_stmt, else_stmt, parser->ast_array.ast_data, GET_ELEMENT_LINE(condition_ptr));
+    init_If(OFFSET_PTR(result), condition, then_stmt, else_stmt, parser->ast_array.data, GET_ELEMENT_LINE(condition_ptr));
     return result;
 }
 
@@ -215,8 +215,8 @@ size_t or_logical(parser* parser)
     while(parser_match(parser, TOK_OR))
     {
         size_t right = and_logical(parser);
-        size_t bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
-        init_BinOp(OFFSET_PTR(bin_op), TOK_OR, result, right, parser->ast_array.ast_data, parser_previous_token(parser)->line);
+        size_t bin_op = allocate_vsd_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(OFFSET_PTR(bin_op), TOK_OR, result, right, parser->ast_array.data, parser_previous_token(parser)->line);
         result = bin_op;
     }
     return result;
@@ -229,8 +229,8 @@ size_t and_logical(parser* parser)
     while(parser_match(parser, TOK_AND))
     {
         size_t right = equality(parser);
-        size_t bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
-        init_BinOp(OFFSET_PTR(bin_op), TOK_AND, result, right, parser->ast_array.ast_data, parser_previous_token(parser)->line);
+        size_t bin_op = allocate_vsd_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(OFFSET_PTR(bin_op), TOK_AND, result, right, parser->ast_array.data, parser_previous_token(parser)->line);
         result = bin_op;
     }
     return result;
@@ -244,8 +244,8 @@ size_t equality(parser* parser)
     {
         token* op = parser_previous_token(parser);
         size_t right = comparison(parser);
-        size_t bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
-        init_BinOp(OFFSET_PTR(bin_op), op->type, result, right, parser->ast_array.ast_data, op->line);
+        size_t bin_op = allocate_vsd_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(OFFSET_PTR(bin_op), op->type, result, right, parser->ast_array.data, op->line);
         result = bin_op;
     }
     return result;
@@ -259,8 +259,8 @@ size_t comparison(parser* parser)
     {
         token* op = parser_previous_token(parser);
         size_t right = addition(parser);
-        size_t bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
-        init_BinOp(OFFSET_PTR(bin_op), op->type, result, right, parser->ast_array.ast_data, op->line);
+        size_t bin_op = allocate_vsd_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(OFFSET_PTR(bin_op), op->type, result, right, parser->ast_array.data, op->line);
         result = bin_op;
     }
     return result;
@@ -274,8 +274,8 @@ size_t addition(parser* parser)
     {
         token* op = parser_previous_token(parser);
         size_t right = multiplication(parser);
-        size_t bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
-        init_BinOp(OFFSET_PTR(bin_op), op->type, result, right, parser->ast_array.ast_data, op->line);
+        size_t bin_op = allocate_vsd_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(OFFSET_PTR(bin_op), op->type, result, right, parser->ast_array.data, op->line);
         result = bin_op;
     }
     return result;
@@ -289,8 +289,8 @@ size_t multiplication(parser* parser)
     {
         token* op = parser_previous_token(parser);
         size_t right = modulo(parser);
-        size_t bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
-        init_BinOp(OFFSET_PTR(bin_op), op->type, result, right, parser->ast_array.ast_data, op->line);
+        size_t bin_op = allocate_vsd_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(OFFSET_PTR(bin_op), op->type, result, right, parser->ast_array.data, op->line);
         result = bin_op;
     }
     return result;
@@ -303,8 +303,8 @@ size_t modulo(parser* parser)
     while(parser_match(parser, TOK_MOD))
     {
         size_t right = exponent(parser);
-        size_t bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
-        init_BinOp(OFFSET_PTR(bin_op), TOK_MOD, result, right, parser->ast_array.ast_data, parser_previous_token(parser)->line);
+        size_t bin_op = allocate_vsd_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(OFFSET_PTR(bin_op), TOK_MOD, result, right, parser->ast_array.data, parser_previous_token(parser)->line);
         result = bin_op;
     }
     return result;
@@ -317,8 +317,8 @@ size_t exponent(parser* parser)
     while(parser_match(parser, TOK_CARET))
     {
         size_t right = exponent(parser);
-        size_t bin_op = allocate_ast_array(&parser->ast_array, sizeof(BinOp));
-        init_BinOp(OFFSET_PTR(bin_op), TOK_CARET, result, right, parser->ast_array.ast_data, parser_previous_token(parser)->line);
+        size_t bin_op = allocate_vsd_array(&parser->ast_array, sizeof(BinOp));
+        init_BinOp(OFFSET_PTR(bin_op), TOK_CARET, result, right, parser->ast_array.data, parser_previous_token(parser)->line);
         result = bin_op;
     }
     return result;
@@ -331,8 +331,8 @@ size_t unary(parser* parser)
     {
         token* op = parser_previous_token(parser);
         size_t operand = unary(parser);
-        size_t un_op = allocate_ast_array(&parser->ast_array, sizeof(UnOp));
-        init_UnOp(OFFSET_PTR(un_op), op->type, operand, parser->ast_array.ast_data, op->line);
+        size_t un_op = allocate_vsd_array(&parser->ast_array, sizeof(UnOp));
+        init_UnOp(OFFSET_PTR(un_op), op->type, operand, parser->ast_array.data, op->line);
         return un_op;
     }
     return primary(parser);
@@ -345,40 +345,40 @@ size_t primary(parser* parser)
     if (parser_match(parser, TOK_INTEGER))
     {
         token* integer_token = parser_previous_token(parser);
-        size_t integer = allocate_ast_array(&parser->ast_array, sizeof(Integer));
-        memcpy_s(num_string, 127, integer_token->start, integer_token->length);
-        num_string[min(127, integer_token->length)] = '\0';
+        size_t integer = allocate_vsd_array(&parser->ast_array, sizeof(Integer));
+        memcpy_s(num_string, 127, integer_token->token.string_value, integer_token->token.length);
+        num_string[min(127, integer_token->token.length)] = '\0';
         init_Integer(OFFSET_PTR(integer), strtol(num_string, NULL, 10), integer_token->line);
         return integer;
     }
     if (parser_match(parser, TOK_FLOAT))
     {
         token* float_token = parser_previous_token(parser);
-        size_t number = allocate_ast_array(&parser->ast_array, sizeof(Float));
-        memcpy_s(num_string, 127, float_token->start, float_token->length);
-        num_string[min(127, float_token->length)] = '\0';
+        size_t number = allocate_vsd_array(&parser->ast_array, sizeof(Float));
+        memcpy_s(num_string, 127, float_token->token.string_value, float_token->token.length);
+        num_string[min(127, float_token->token.length)] = '\0';
         init_Float(OFFSET_PTR(number), strtod(num_string, NULL), float_token->line);
         return number;
     }
     if (parser_match(parser, TOK_TRUE))
     {
         token* bool_token = parser_previous_token(parser);
-        size_t boolean = allocate_ast_array(&parser->ast_array, sizeof(Bool));
+        size_t boolean = allocate_vsd_array(&parser->ast_array, sizeof(Bool));
         init_Bool(OFFSET_PTR(boolean), 1, bool_token->line);
         return boolean;
     }
     if (parser_match(parser, TOK_FALSE))
     {
         token* bool_token = parser_previous_token(parser);
-        size_t boolean = allocate_ast_array(&parser->ast_array, sizeof(Bool));
+        size_t boolean = allocate_vsd_array(&parser->ast_array, sizeof(Bool));
         init_Bool(OFFSET_PTR(boolean), 0, bool_token->line);
         return boolean;
     }
     if (parser_match(parser, TOK_STRING))
     {
         token* string_token = parser_previous_token(parser);
-        size_t string = allocate_ast_array(&parser->ast_array, sizeof(String));
-        init_String(OFFSET_PTR(string), string_token->start+1, string_token->length-2, string_token->line);
+        size_t string = allocate_vsd_array(&parser->ast_array, sizeof(String));
+        init_String(OFFSET_PTR(string), string_token->token.string_value+1, string_token->token.length-2, string_token->line);
         return string;
     }
     if (parser_match(parser, TOK_LPAREN))
@@ -391,16 +391,16 @@ size_t primary(parser* parser)
         }
         else
         {
-            size_t grouping = allocate_ast_array(&parser->ast_array, sizeof(Grouping));
+            size_t grouping = allocate_vsd_array(&parser->ast_array, sizeof(Grouping));
             void* expression_ptr = OFFSET_PTR(expression);
-            init_Grouping(OFFSET_PTR(grouping), expression, parser->ast_array.ast_data, GET_ELEMENT_LINE(expression_ptr));
+            init_Grouping(OFFSET_PTR(grouping), expression, parser->ast_array.data, GET_ELEMENT_LINE(expression_ptr));
             return grouping;
         }
     }
 
     // If none of the above, it is an identifier
     token* identifier_token = parser_expect(parser, TOK_IDENTIFIER);
-    size_t identifier = allocate_ast_array(&parser->ast_array, sizeof(Identifier));
-    init_Identifier(OFFSET_PTR(identifier), identifier_token->start, identifier_token->length, identifier_token->line);
+    size_t identifier = allocate_vsd_array(&parser->ast_array, sizeof(Identifier));
+    init_Identifier(OFFSET_PTR(identifier), identifier_token->token.string_value, identifier_token->token.length, identifier_token->line);
     return identifier;
 }

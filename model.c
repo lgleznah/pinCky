@@ -152,9 +152,9 @@ int init_Identifier(Identifier* identifier_elem, char* name, int length, int lin
     memcpy(&identifier_elem->base, &base, sizeof(base));
 
     identifier_elem->base.line = line;
-    identifier_elem->base.tag = SET_ELEMENT_TYPE(Expression, String_expr);
-    identifier_elem->name = name;
-    identifier_elem->length = length;
+    identifier_elem->base.tag = SET_ELEMENT_TYPE(Expression, Identifier_expr);
+    identifier_elem->name.string_value = name;
+    identifier_elem->name.length = length;
     return 1;
 }
 
@@ -162,10 +162,10 @@ void print_Identifier(const Element* identifier_elem, int depth)
 {
     const Identifier* identifier_element = (const Identifier*)identifier_elem;
     AST_PRINT_PAD(depth);
-    printf("Identifier[%.*s]", identifier_element->length, identifier_element->name);
+    printf("Identifier[%.*s]", identifier_element->name.length, identifier_element->name.string_value);
 }
 
-// Strings are constant-sized in the AST data array. Just return their size
+// Identifiers are constant-sized in the AST data array. Just return their size
 size_t element_size_Identifier(const Element* identifier_elem)
 {
     return sizeof(Identifier);
@@ -331,7 +331,7 @@ int init_StatementList(StatementList* statement_list_elem, statement_array* arra
 {
     for (size_t i = 0; i < array->used; i++)
     {
-        if (!CHECK_ELEMENT_SUPERTYPE(array->statements[i] + (char*)(ast_base), Statement))
+        if (!CHECK_ELEMENT_SUPERTYPE(array->data[i] + (char*)(ast_base), Statement))
         {
             return 0;
         }
@@ -349,7 +349,7 @@ int init_StatementList(StatementList* statement_list_elem, statement_array* arra
     void** statement_ptrs = (void**)((char*)statement_list_elem + sizeof(StatementList));
     for (size_t i = 0; i < array->used; i++)
     {
-        *statement_ptrs++ = (void*)array->statements[i];
+        *statement_ptrs++ = (void*)array->data[i];
     }
 
     return 1;

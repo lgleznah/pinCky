@@ -8,7 +8,7 @@ typedef struct
 {
     token_array* tokens;
     int curr_token;
-    ast_array ast_array;
+    vsd_array ast_array;
 } parser;
 
 void init_parser(parser* parser, token_array* tokens);

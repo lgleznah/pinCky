@@ -1,5 +1,7 @@
 #pragma once
 
+#include "string_type.h"
+
 typedef enum
 {
     // SINGLE-CHAR TOKENS
@@ -166,8 +168,7 @@ typedef struct
     token_type type;
     int line, column;
 
-    char* start;
-    int length;
+    string_type token;
 } token;
 
 void print_token(const token* token);

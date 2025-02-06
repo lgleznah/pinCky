@@ -1,17 +1,13 @@
-println 1 + 2
-println 3 * 2^2
-println "test" + 34
-println "asd"
-
 x := 0
 x := x + 1
 
-if 1+2 > 1 then
-    println("Condition OK!")
-    println("Another one")
-    if true then
-        println "Oooooh"
-    end
+println("The value of the global x is " + x)
+
+if 5~=2 then
+    y := x + 20
+    println("I have access to the local y = " + y)
+    println("I have also access to the global x = " + x)
 else
-    println("Ahoy!")
+    x := y
+    println("Error, no local variable " + y)
 end

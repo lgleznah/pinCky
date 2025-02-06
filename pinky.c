@@ -47,7 +47,7 @@ int main(const int argc, char* argv[])
     interpreter interpreter;
     init_interpreter(&interpreter);
     PRINT_GOOD("Interpreting %s\n", filename);
-    interpret(&interpreter, ast);
+    interpret_ast(&interpreter, ast);
     
     // Close stuff
     free_lexer(&lexer);
