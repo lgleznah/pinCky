@@ -151,6 +151,11 @@ size_t stmt(parser* parser)
         return if_stmt(parser);
     }
 
+    if (parser_peek(parser)->type == TOK_WHILE)
+    {
+        return while_stmt(parser);
+    }
+
     // If none of the above, this statement is an assignment or a function call
     size_t lhs = expr(parser);
     if (parser_match(parser, TOK_ASSIGN))
@@ -199,6 +204,21 @@ size_t if_stmt(parser* parser)
     size_t result = allocate_vsd_array(&parser->ast_array, sizeof(If));
     void* condition_ptr = OFFSET_PTR(condition);
     init_If(OFFSET_PTR(result), condition, then_stmt, else_stmt, parser->ast_array.data, GET_ELEMENT_LINE(condition_ptr));
+    return result;
+}
+
+// <while> ::= 'while' <expr> 'do' <stmts> 'end'
+size_t while_stmt(parser* parser)
+{
+    parser_expect(parser, TOK_WHILE);
+    size_t condition = expr(parser);
+    parser_expect(parser, TOK_DO);
+    size_t statements = stmts(parser);
+    parser_expect(parser, TOK_END);
+
+    size_t result = allocate_vsd_array(&parser->ast_array, sizeof(While));
+    void* condition_ptr = OFFSET_PTR(condition);
+    init_While(OFFSET_PTR(result), condition, statements, parser->ast_array.data, GET_ELEMENT_LINE(condition_ptr));
     return result;
 }
 

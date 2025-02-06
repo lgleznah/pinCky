@@ -1,0 +1,33 @@
+x0 := -2.0
+y0 := -2.0
+
+max_iters := 100
+
+while y0 <= 2.0 do
+    while x0 <= 2.0 do
+         iters := 0
+         x := 0
+         y := 0
+         x2 := 0
+         y2 := 0
+         
+         while (x2 + y2 <= 4) and (iters < max_iters) do
+            y := 2 * x * y + y0
+            x := x2 - y2 + x0
+            x2 := x * x
+            y2 := y * y
+            iters := iters + 1
+         end
+                  
+         if iters == max_iters then
+            print "#"
+         else
+            print " "
+         end
+         
+         x0 := x0 + 0.004
+    end
+    println ""
+    y0 := y0 + 0.01
+    x0 := -2.0
+end

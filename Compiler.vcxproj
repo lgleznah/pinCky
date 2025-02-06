@@ -331,7 +331,7 @@
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="scripts\myscript.pinky" />
+    <Content Include="scripts\mandelbrot.pinky" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

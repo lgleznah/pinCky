@@ -77,7 +77,7 @@ typedef struct Integer
     int value;
 } Integer;
 
-int init_Integer(Integer* integer_elem, int value, int line);
+void init_Integer(Integer* integer_elem, int value, int line);
 void print_Integer(const Element* integer_elem, int depth);
 size_t element_size_Integer(const Element* integer_elem);
 void compute_ptr_Integer(Element* integer_elem, void* ast_base);
@@ -89,7 +89,7 @@ typedef struct Float
     double value;
 } Float;
 
-int init_Float(Float* float_elem, double value, int line);
+void init_Float(Float* float_elem, double value, int line);
 void print_Float(const Element* float_elem, int depth);
 size_t element_size_Float(const Element* float_elem);
 void compute_ptr_Float(Element* float_elem, void* ast_base);
@@ -102,7 +102,7 @@ typedef struct Bool
     char value;
 } Bool;
 
-int init_Bool(Bool* bool_elem, char value, int line);
+void init_Bool(Bool* bool_elem, char value, int line);
 void print_Bool(const Element* bool_elem, int depth);
 size_t element_size_Bool(const Element* bool_elem);
 void compute_ptr_Bool(Element* bool_elem, void* ast_base);
@@ -115,7 +115,7 @@ typedef struct String
     int length;
 } String;
 
-int init_String(String* string_elem, char* string, int length, int line);
+void init_String(String* string_elem, char* string, int length, int line);
 void print_String(const Element* string_elem, int depth);
 size_t element_size_String(const Element* string_elem);
 void compute_ptr_String(Element* string_elem, void* ast_base);
@@ -127,7 +127,7 @@ typedef struct Identifier
     string_type name;
 } Identifier;
 
-int init_Identifier(Identifier* identifier_elem, char* name, int length, int line);
+void init_Identifier(Identifier* identifier_elem, char* name, int length, int line);
 void print_Identifier(const Element* identifier_elem, int depth);
 size_t element_size_Identifier(const Element* identifier_elem);
 void compute_ptr_Identifier(Element* identifier_elem, void* ast_base);
@@ -141,7 +141,7 @@ typedef struct BinOp
     void* right;
 } BinOp;
 
-int init_BinOp(BinOp* binop_elem, token_type op, size_t left, size_t right, void* ast_base, int line);
+void init_BinOp(BinOp* binop_elem, token_type op, size_t left, size_t right, void* ast_base, int line);
 void print_BinOp(const Element* binop_elem, int depth);
 size_t element_size_BinOp(const Element* binop_elem);
 void compute_ptr_BinOp(Element* binop_elem, void* ast_base);
@@ -154,7 +154,7 @@ typedef struct UnOp
     void* operand;
 } UnOp;
 
-int init_UnOp(UnOp* unop_elem, token_type op, size_t operand, void* ast_base, int line);
+void init_UnOp(UnOp* unop_elem, token_type op, size_t operand, void* ast_base, int line);
 void print_UnOp(const Element* unop_elem, int depth);
 size_t element_size_UnOp(const Element* unop_elem);
 void compute_ptr_UnOp(Element* unop_elem, void* ast_base);
@@ -166,7 +166,7 @@ typedef struct Grouping
     void* expression;
 } Grouping;
 
-int init_Grouping(Grouping* grouping_elem, size_t expression, void* ast_base, int line);
+void init_Grouping(Grouping* grouping_elem, size_t expression, void* ast_base, int line);
 void print_Grouping(const Element* grouping_elem, int depth);
 size_t element_size_Grouping(const Element* grouping_elem);
 void compute_ptr_Grouping(Element* grouping_elem, void* ast_base);
@@ -178,7 +178,7 @@ typedef struct StatementList
     size_t size;
 } StatementList;
 
-int init_StatementList(StatementList* statement_list_elem, statement_array* array, void* ast_base, int line);
+void init_StatementList(StatementList* statement_list_elem, statement_array* array, void* ast_base, int line);
 void print_StatementList(const Element* statement_list_elem, int depth);
 size_t element_size_StatementList(const Element* statement_list_elem);
 void compute_ptr_StatementList(Element* statement_list_elem, void* ast_base);
@@ -187,9 +187,11 @@ void compute_ptr_StatementList(Element* statement_list_elem, void* ast_base);
 typedef struct While
 {
     Element base;
+    void* condition;
+    void* statements;
 } While;
 
-int init_While(While* while_elem, int line);
+void init_While(While* while_elem, size_t condition, size_t statements, void* ast_base, int line);
 void print_While(const Element* while_elem, int depth);
 size_t element_size_While(const Element* while_elem);
 void compute_ptr_While(Element* while_elem, void* ast_base);
@@ -202,7 +204,7 @@ typedef struct Assignment
     void* rhs;
 } Assignment;
 
-int init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, void* ast_base, int line);
+void init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, void* ast_base, int line);
 void print_Assignment(const Element* assignment_elem, int depth);
 size_t element_size_Assignment(const Element* assignment_elem);
 void compute_ptr_Assignment(Element* assignment_elem, void* ast_base);
@@ -215,7 +217,7 @@ typedef struct Print
     void* expression;
 } Print;
 
-int init_Print(Print* print_elem, char break_line, size_t expression, void* ast_base, int line);
+void init_Print(Print* print_elem, char break_line, size_t expression, void* ast_base, int line);
 void print_Print(const Element* print_elem, int depth);
 size_t element_size_Print(const Element* print_elem);
 void compute_ptr_Print(Element* print_elem, void* ast_base);
@@ -229,7 +231,7 @@ typedef struct If
     void* else_branch;
 } If;
 
-int init_If(If* if_elem, size_t condition, size_t then_branch, size_t else_branch, void* ast_base, int line);
+void init_If(If* if_elem, size_t condition, size_t then_branch, size_t else_branch, void* ast_base, int line);
 void print_If(const Element* if_elem, int depth);
 size_t element_size_If(const Element* if_elem);
 void compute_ptr_If(Element* if_elem, void* ast_base);
@@ -240,7 +242,7 @@ typedef struct For
     Element base;
 } For;
 
-int init_For(For* for_elem, int line);
+void init_For(For* for_elem, int line);
 void print_For(const Element* for_elem, int depth);
 size_t element_size_For(const Element* for_elem);
 void compute_ptr_For(Element* for_elem, void* ast_base);

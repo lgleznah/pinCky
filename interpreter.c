@@ -37,7 +37,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 return (expression_result) {.type = NONE};
 
             case Print_stmt:
-                Print* print_stmt = (Print*)ast_node;
+                Print* print_stmt = ast_node;
                 expression_result result = interpret(interpreter, print_stmt->expression, env);
                 string_type result_str = cast_to_string(interpreter, result);
                 printf("%.*s", result_str.length, result_str.string_value);
@@ -49,7 +49,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 return (expression_result) {.type = NONE};
 
             case If_stmt:
-                If* if_stmt = (If*)ast_node;
+                If* if_stmt = ast_node;
                 expression_result test_result = interpret(interpreter, if_stmt->condition, env);
                 if (test_result.type != BOOL_VALUE)
                 {
@@ -70,6 +70,25 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                     interpret(interpreter, if_stmt->else_branch, &child);
                     clear_environment(&child);
                 }
+
+                return (expression_result) {.type = NONE};
+
+            case While_stmt:
+                While* while_stmt = ast_node;
+                expression_result while_test_result = interpret(interpreter, while_stmt->condition, env);
+                if (while_test_result.type != BOOL_VALUE)
+                {
+                    PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Condition test is not boolean\n");
+                }
+
+                environment while_child;
+                init_environment(&while_child, env);
+                while(while_test_result.value.bool_value)
+                {
+                    interpret(interpreter, while_stmt->statements, &while_child);
+                    while_test_result = interpret(interpreter, while_stmt->condition, env);
+                }
+                clear_environment(&while_child);
 
                 return (expression_result) {.type = NONE};
 

@@ -14,7 +14,7 @@
 /// INTEGER FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_Integer(Integer* integer_elem, int value, int line)
+void init_Integer(Integer* integer_elem, int value, int line)
 {
     static const ElementInterface vtable = { print_Integer, element_size_Integer, compute_ptr_Integer };
     static Element base = { 0, 0, &vtable };
@@ -23,7 +23,6 @@ int init_Integer(Integer* integer_elem, int value, int line)
     integer_elem->base.line = line;
     integer_elem->base.tag = SET_ELEMENT_TYPE(Expression, Integer_expr);
     integer_elem->value = value;
-    return 1;
 }
 
 void print_Integer(const Element* integer_elem, int depth)
@@ -46,7 +45,7 @@ void compute_ptr_Integer(Element* integer_elem, void* ast_base) {}
 /// FLOAT FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_Float(Float* float_elem, double value, int line)
+void init_Float(Float* float_elem, double value, int line)
 {
     static const ElementInterface vtable = { print_Float, element_size_Float, compute_ptr_Float };
     static Element base = { 0, 0, &vtable};
@@ -55,7 +54,6 @@ int init_Float(Float* float_elem, double value, int line)
     float_elem->base.line = line;
     float_elem->base.tag = SET_ELEMENT_TYPE(Expression, Float_expr);
     float_elem->value = value;
-    return 1;
 }
 
 void print_Float(const Element* float_elem, int depth)
@@ -78,7 +76,7 @@ void compute_ptr_Float(Element* float_elem, void* ast_base) {}
 /// BOOL FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_Bool(Bool* bool_elem, char value, int line)
+void init_Bool(Bool* bool_elem, char value, int line)
 {
     static const ElementInterface vtable = { print_Bool, element_size_Bool, compute_ptr_Bool };
     static Element base = { 0, 0, &vtable};
@@ -87,7 +85,6 @@ int init_Bool(Bool* bool_elem, char value, int line)
     bool_elem->base.line = line;
     bool_elem->base.tag = SET_ELEMENT_TYPE(Expression, Bool_expr);
     bool_elem->value = value;
-    return 1;
 }
 
 void print_Bool(const Element* bool_elem, int depth)
@@ -110,7 +107,7 @@ void compute_ptr_Bool(Element* bool_elem, void* ast_base) {}
 /// STRING FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_String(String* string_elem, char* string, int length, int line)
+void init_String(String* string_elem, char* string, int length, int line)
 {
     static const ElementInterface vtable = { print_String, element_size_String, compute_ptr_String };
     static Element base = { 0, 0, &vtable};
@@ -120,7 +117,6 @@ int init_String(String* string_elem, char* string, int length, int line)
     string_elem->base.tag = SET_ELEMENT_TYPE(Expression, String_expr);
     string_elem->string = string;
     string_elem->length = length;
-    return 1;
 }
 
 void print_String(const Element* string_elem, int depth)
@@ -145,7 +141,7 @@ void compute_ptr_String(Element* string_elem, void* ast_base) {}
 /// IDENTIFIER FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_Identifier(Identifier* identifier_elem, char* name, int length, int line)
+void init_Identifier(Identifier* identifier_elem, char* name, int length, int line)
 {
     static const ElementInterface vtable = { print_Identifier, element_size_Identifier, compute_ptr_Identifier };
     static Element base = { 0, 0, &vtable};
@@ -155,7 +151,6 @@ int init_Identifier(Identifier* identifier_elem, char* name, int length, int lin
     identifier_elem->base.tag = SET_ELEMENT_TYPE(Expression, Identifier_expr);
     identifier_elem->name.string_value = name;
     identifier_elem->name.length = length;
-    return 1;
 }
 
 void print_Identifier(const Element* identifier_elem, int depth)
@@ -180,13 +175,13 @@ void compute_ptr_Identifier(Element* identifier_elem, void* ast_base) {}
 /// BINOP FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_BinOp(BinOp* binop_elem, token_type op, size_t left, size_t right, void* ast_base, int line)
+void init_BinOp(BinOp* binop_elem, token_type op, size_t left, size_t right, void* ast_base, int line)
 {
     void* left_ptr = OFFSET_PTR(left);
     void* right_ptr = OFFSET_PTR(right);
     if (!CHECK_ELEMENT_SUPERTYPE(left_ptr, Expression) || !CHECK_ELEMENT_SUPERTYPE(right_ptr, Expression))
     {
-        return 0;
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "Both sides of binary operation must be expressions.");
     }
 
     static const ElementInterface vtable = { print_BinOp, element_size_BinOp, compute_ptr_BinOp };
@@ -198,7 +193,6 @@ int init_BinOp(BinOp* binop_elem, token_type op, size_t left, size_t right, void
     binop_elem->op = op;
     binop_elem->left = (void*)left;
     binop_elem->right = (void*)right;
-    return 1;
 }
 
 void print_BinOp(const Element* binop_elem, int depth)
@@ -234,12 +228,12 @@ void compute_ptr_BinOp(Element* binop_elem, void* ast_base)
 /// UNOP FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_UnOp(UnOp* unop_elem, token_type op, size_t operand, void* ast_base, int line)
+void init_UnOp(UnOp* unop_elem, token_type op, size_t operand, void* ast_base, int line)
 {
     void* operand_ptr = OFFSET_PTR(operand);
     if (!CHECK_ELEMENT_SUPERTYPE(operand_ptr, Expression))
     {
-        return 0;
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "Operand of unary operation must be an expression.");
     }
 
     static const ElementInterface vtable = { print_UnOp, element_size_UnOp, compute_ptr_UnOp };
@@ -250,8 +244,8 @@ int init_UnOp(UnOp* unop_elem, token_type op, size_t operand, void* ast_base, in
     unop_elem->base.tag = SET_ELEMENT_TYPE(Expression, UnOp_expr);
     unop_elem->op = op;
     unop_elem->operand = (void*)operand;
-    return 1;
 }
+
 void print_UnOp(const Element* unop_elem, int depth)
 {
     const UnOp* un_op_element = (const UnOp*)unop_elem;
@@ -281,12 +275,12 @@ void compute_ptr_UnOp(Element* unop_elem, void* ast_base)
 /// GROUPING FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_Grouping(Grouping* grouping_elem, size_t expression, void* ast_base, int line)
+void init_Grouping(Grouping* grouping_elem, size_t expression, void* ast_base, int line)
 {
     void* expression_ptr = OFFSET_PTR(expression);
     if (!CHECK_ELEMENT_SUPERTYPE(expression_ptr, Expression))
     {
-        return 0;
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "Content of grouping must be an expression.");
     }
 
     static const ElementInterface vtable = { print_Grouping, element_size_Grouping, compute_ptr_Grouping };
@@ -296,8 +290,8 @@ int init_Grouping(Grouping* grouping_elem, size_t expression, void* ast_base, in
     grouping_elem->base.line = line;
     grouping_elem->base.tag = SET_ELEMENT_TYPE(Expression, Grouping_expr);
     grouping_elem->expression = (void*)expression;
-    return 1;
 }
+
 void print_Grouping(const Element* grouping_elem, int depth)
 {
     const Grouping* grouping_element = (const Grouping*)grouping_elem;
@@ -327,13 +321,13 @@ void compute_ptr_Grouping(Element* grouping_elem, void* ast_base)
 /// STATEMENTLIST FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_StatementList(StatementList* statement_list_elem, statement_array* array, void* ast_base, int line)
+void init_StatementList(StatementList* statement_list_elem, statement_array* array, void* ast_base, int line)
 {
     for (size_t i = 0; i < array->used; i++)
     {
         if (!CHECK_ELEMENT_SUPERTYPE(array->data[i] + (char*)(ast_base), Statement))
         {
-            return 0;
+            PRINT_SYNTAX_ERROR_AND_QUIT(GET_ELEMENT_LINE(array->data[i] + (char*)(ast_base)), "Element in statement list must be an statement.");
         }
     }
 
@@ -351,8 +345,6 @@ int init_StatementList(StatementList* statement_list_elem, statement_array* arra
     {
         *statement_ptrs++ = (void*)array->data[i];
     }
-
-    return 1;
 }
 
 void print_StatementList(const Element* statement_list_elem, int depth)
@@ -398,30 +390,79 @@ void compute_ptr_StatementList(Element* statement_list_elem, void* ast_base)
 /// WHILE FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_While(While* while_elem, int line)
+void init_While(While* while_elem, size_t condition, size_t statements, void* ast_base, int line)
 {
-    return -1;
+    void* condition_ptr = OFFSET_PTR(condition);
+    void* statements_ptr = OFFSET_PTR(statements);
+
+    if (!CHECK_ELEMENT_SUPERTYPE(condition_ptr, Expression))
+    {
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "While condition must be an expression.");
+    }
+
+    if (!CHECK_ELEMENT_SUPERTYPE(statements_ptr, Statement) || !CHECK_ELEMENT_TYPE(statements_ptr, StatementList_stmt))
+    {
+        PRINT_SYNTAX_ERROR_AND_QUIT(GET_ELEMENT_LINE(statements_ptr), "While statements must be an statement list");
+    }
+
+    static const ElementInterface vtable = { print_While, element_size_While, compute_ptr_While };
+    static Element base = { 0, 0, &vtable};
+    memcpy(&while_elem->base, &base, sizeof(base));
+
+    while_elem->base.line = line;
+    while_elem->base.tag = SET_ELEMENT_TYPE(Statement, While_stmt);
+    while_elem->condition = (void*)condition;
+    while_elem->statements = (void*)statements;
 }
+
 void print_While(const Element* while_elem, int depth)
 {
-    
+    const While* while_element = (const While*)while_elem;
+    AST_PRINT_PAD(depth);
+    printf("While {\n");
+    AST_PRINT_PAD(depth+1);
+    printf("Condition {\n");
+    print_element(while_element->condition, depth+2);
+    printf(",\n");
+    AST_PRINT_PAD(depth+1);
+    printf("Do {\n");
+    print_element(while_element->statements, depth+2);
+    printf("\n");
+    AST_PRINT_PAD(depth+1);
+    printf("}\n");
+    AST_PRINT_PAD(depth);
+    printf("}");
+}
+
+size_t element_size_While(const Element* while_elem)
+{
+    return sizeof(While);
+}
+
+void compute_ptr_While(Element* while_elem, void* ast_base)
+{
+    While* while_element = (While*)while_elem;
+    while_element->condition = OFFSET_PTR((size_t)while_element->condition);
+    while_element->statements = OFFSET_PTR((size_t)while_element->statements);
+    compute_ptr(while_element->condition, ast_base);
+    compute_ptr(while_element->statements, ast_base);
 }
 
 ///////////////////////////////////////////////
 /// ASSIGNMENT FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, void* ast_base, int line)
+void init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, void* ast_base, int line)
 {
     void* lhs_ptr = OFFSET_PTR(lhs);
     void* rhs_ptr = OFFSET_PTR(rhs);
-    if (!CHECK_ELEMENT_SUPERTYPE(lhs_ptr, Expression))
+    if (!CHECK_ELEMENT_SUPERTYPE(lhs_ptr, Expression) || !CHECK_ELEMENT_TYPE(lhs_ptr, Identifier_expr))
     {
-        return 0;
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "Left-hand side of assignment must be an identifier.");
     }
     if (!CHECK_ELEMENT_SUPERTYPE(rhs_ptr, Expression))
     {
-        return 0;
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "Right-hand side of assignment must be an expression.");
     }
 
     static const ElementInterface vtable = { print_Assignment, element_size_Assignment, compute_ptr_Assignment };
@@ -433,7 +474,6 @@ int init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, void* a
     assignment_elem->lhs = (void*)lhs;
     assignment_elem->rhs = (void*)rhs;
 
-    return 1;
 }
 
 void print_Assignment(const Element* assignment_elem, int depth)
@@ -467,12 +507,12 @@ void compute_ptr_Assignment(Element* assignment_elem, void* ast_base)
 /// PRINT FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_Print(Print* print_elem, char break_line, size_t expression, void* ast_base, int line)
+void init_Print(Print* print_elem, char break_line, size_t expression, void* ast_base, int line)
 {
     void* expression_ptr = OFFSET_PTR(expression);
     if (!CHECK_ELEMENT_SUPERTYPE(expression_ptr, Expression))
     {
-        return 0;
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "Contents of print statement must be an expression.");
     }
 
     static const ElementInterface vtable = { print_Print, element_size_Print, compute_ptr_Print };
@@ -484,7 +524,6 @@ int init_Print(Print* print_elem, char break_line, size_t expression, void* ast_
     print_elem->expression = (void*)expression;
     print_elem->break_line = break_line;
     
-    return 1;
 }
 
 void print_Print(const Element* print_elem, int depth)
@@ -514,7 +553,7 @@ void compute_ptr_Print(Element* print_elem, void* ast_base)
 /// IF FUNCTIONS
 ///////////////////////////////////////////////
 
-int init_If(If* if_elem, size_t condition, size_t then_branch, size_t else_branch, void* ast_base, int line)
+void init_If(If* if_elem, size_t condition, size_t then_branch, size_t else_branch, void* ast_base, int line)
 {
     void* condition_ptr = OFFSET_PTR(condition);
     void* then_branch_ptr = OFFSET_PTR(then_branch);
@@ -522,17 +561,17 @@ int init_If(If* if_elem, size_t condition, size_t then_branch, size_t else_branc
 
     if (!CHECK_ELEMENT_SUPERTYPE(condition_ptr, Expression))
     {
-        return 0;
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "If condition must be an expression.");
     }
 
     if (!CHECK_ELEMENT_SUPERTYPE(then_branch_ptr, Statement) || !CHECK_ELEMENT_TYPE(then_branch_ptr, StatementList_stmt))
     {
-        return 0;
+        PRINT_SYNTAX_ERROR_AND_QUIT(GET_ELEMENT_LINE(then_branch_ptr), "Then branch must be an statement list");
     }
 
     if (else_branch != (size_t)(-1) && (!CHECK_ELEMENT_SUPERTYPE(else_branch_ptr, Statement) || !CHECK_ELEMENT_TYPE(else_branch_ptr, StatementList_stmt)))
     {
-        return 0;
+        PRINT_SYNTAX_ERROR_AND_QUIT(GET_ELEMENT_LINE(else_branch_ptr), "Else branch must be an statement list");
     }
 
     static const ElementInterface vtable = { print_If, element_size_If, compute_ptr_If };
@@ -544,7 +583,6 @@ int init_If(If* if_elem, size_t condition, size_t then_branch, size_t else_branc
     if_elem->condition = (void*)condition;
     if_elem->then_branch = (void*)then_branch;
     if_elem->else_branch = (void*)else_branch;
-    return 1;
 }
 
 void print_If(const Element* if_elem, int depth)
