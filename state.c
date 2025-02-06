@@ -57,8 +57,9 @@ void set_variable(environment* state, string_type name, expression_result value)
             }
             else
             {
-                char* variable_address = (char*)current->variables_memory.data + variable_offset;
-                memcpy_s(variable_address, sizeof(expression_result), &value, sizeof(expression_result));
+                expression_result* variable_address = (expression_result*)((char*)current->variables_memory.data + variable_offset);
+                variable_address->type = value.type;
+                variable_address->value = value.value;
             }
             return;
         }

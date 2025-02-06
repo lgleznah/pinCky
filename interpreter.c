@@ -92,6 +92,48 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
 
                 return (expression_result) {.type = NONE};
 
+            case For_stmt:
+                For* for_stmt = ast_node;
+                environment for_child;
+                init_environment(&for_child, env);
+            
+                interpret(interpreter, for_stmt->initial_assignment, &for_child);
+                Identifier* iterator_identifier = (Identifier*)(((Assignment*)for_stmt->initial_assignment)->lhs);
+                expression_result iterator = get_variable(&for_child, iterator_identifier->name, element_line);
+                expression_result stop_value = interpret(interpreter, for_stmt->stop, &for_child);
+                expression_result step_value = (expression_result) {.type = NONE};
+
+                if (for_stmt->step != NULL)
+                {
+                    step_value = interpret(interpreter, for_stmt->step, &for_child);
+                    if (step_value.type != INT_VALUE)
+                    {
+                        PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "For step value must be an integer.");
+                    }
+                }
+            
+                if (stop_value.type != INT_VALUE)
+                {
+                    PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "For stop value must be an integer.");
+                }
+
+                if (iterator.type != INT_VALUE)
+                {
+                    PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "For iterator must be an integer.");
+                }
+            
+                while(iterator.value.int_value < stop_value.value.int_value)
+                {
+                    interpret(interpreter, for_stmt->statements, &for_child);
+                    int step = (for_stmt->step != NULL) ? step_value.value.int_value : 1;
+                    expression_result new_iter_value = (expression_result) {.type = INT_VALUE, .value.int_value = iterator.value.int_value + step};
+                    set_variable(&for_child, iterator_identifier->name, new_iter_value);
+                    iterator = get_variable(&for_child, iterator_identifier->name, element_line);
+                }
+            
+                clear_environment(&for_child);
+                return (expression_result) {.type = NONE};
+
             case Assignment_stmt:
                 Assignment* assignment_stmt = ast_node;
                 Identifier* lhs_identifier = assignment_stmt->lhs;

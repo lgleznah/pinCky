@@ -240,9 +240,13 @@ void compute_ptr_If(Element* if_elem, void* ast_base);
 typedef struct For
 {
     Element base;
+    void* initial_assignment;
+    void* stop;
+    void* step;
+    void* statements;
 } For;
 
-void init_For(For* for_elem, int line);
+void init_For(For* for_elem, size_t initial_assignment, size_t stop, size_t step, size_t statements, void* ast_base, int line);
 void print_For(const Element* for_elem, int depth);
 size_t element_size_For(const Element* for_elem);
 void compute_ptr_For(Element* for_elem, void* ast_base);

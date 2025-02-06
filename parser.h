@@ -37,3 +37,4 @@ size_t stmt(parser* parser);
 size_t print_stmt(parser* parser, char break_line);
 size_t if_stmt(parser* parser);
 size_t while_stmt(parser* parser);
+size_t for_stmt(parser* parser);

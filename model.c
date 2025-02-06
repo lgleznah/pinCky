@@ -423,7 +423,9 @@ void print_While(const Element* while_elem, int depth)
     AST_PRINT_PAD(depth+1);
     printf("Condition {\n");
     print_element(while_element->condition, depth+2);
-    printf(",\n");
+    printf("\n");
+    AST_PRINT_PAD(depth+1);
+    printf("},\n");
     AST_PRINT_PAD(depth+1);
     printf("Do {\n");
     print_element(while_element->statements, depth+2);
@@ -593,14 +595,18 @@ void print_If(const Element* if_elem, int depth)
     AST_PRINT_PAD(depth+1);
     printf("Condition {\n");
     print_element(if_element->condition, depth+2);
-    printf(",\n");
+    printf("\n");
+    AST_PRINT_PAD(depth+1);
+    printf("},\n");
     AST_PRINT_PAD(depth+1);
     printf("Then {\n");
     print_element(if_element->then_branch, depth+2);
 
     if (if_element->else_branch != NULL)
     {
-        printf(",\n");
+        printf("\n");
+        AST_PRINT_PAD(depth+1);
+        printf("},\n");
         AST_PRINT_PAD(depth+1);
         printf("Else {\n");
         print_element(if_element->else_branch, depth+2);
@@ -639,3 +645,107 @@ void compute_ptr_If(Element* if_elem, void* ast_base)
 ///////////////////////////////////////////////
 /// FOR FUNCTIONS
 ///////////////////////////////////////////////
+
+void init_For(For* for_elem, size_t initial_assignment, size_t stop, size_t step, size_t statements, void* ast_base, int line)
+{
+    void* initial_assignment_ptr = OFFSET_PTR(initial_assignment);
+    void* stop_ptr = OFFSET_PTR(stop);
+    void* step_ptr = OFFSET_PTR(step);
+    void* statements_ptr = OFFSET_PTR(statements);
+
+    if (!CHECK_ELEMENT_SUPERTYPE(initial_assignment_ptr, Statement) || !CHECK_ELEMENT_TYPE(initial_assignment_ptr, Assignment_stmt))
+    {
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "For initializer must be an assignment.");
+    }
+
+    if (!CHECK_ELEMENT_SUPERTYPE(stop_ptr, Expression))
+    {
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "For stop value be an expression.");
+    }
+
+    if (step != (size_t)(-1) && (!CHECK_ELEMENT_SUPERTYPE(step_ptr, Expression)))
+    {
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "For step value be an expression.");
+    }
+
+    if (!CHECK_ELEMENT_SUPERTYPE(statements_ptr, Statement) || !CHECK_ELEMENT_TYPE(statements_ptr, StatementList_stmt))
+    {
+        PRINT_SYNTAX_ERROR_AND_QUIT(GET_ELEMENT_LINE(statements_ptr), "For statements must be an statement list");
+    }
+
+    static const ElementInterface vtable = { print_For, element_size_For, compute_ptr_For };
+    static Element base = { 0, 0, &vtable};
+    memcpy(&for_elem->base, &base, sizeof(base));
+
+    for_elem->base.line = line;
+    for_elem->base.tag = SET_ELEMENT_TYPE(Statement, For_stmt);
+    for_elem->initial_assignment = (void*)initial_assignment;
+    for_elem->stop = (void*)stop;
+    for_elem->step = (void*)step;
+    for_elem->statements = (void*)statements;
+}
+
+void print_For(const Element* for_elem, int depth)
+{
+    const For* for_element = (const For*)for_elem;
+    AST_PRINT_PAD(depth);
+    printf("For {\n");
+    AST_PRINT_PAD(depth+1);
+    printf("Initial assignment {\n");
+    print_element(for_element->initial_assignment, depth+2);
+    printf("\n");
+    AST_PRINT_PAD(depth+1);
+    printf("},\n");
+    AST_PRINT_PAD(depth+1);
+    printf("Stop {\n");
+    print_element(for_element->stop, depth+2);
+
+    if (for_element->step != NULL)
+    {
+        printf("\n");
+        AST_PRINT_PAD(depth+1);
+        printf("},\n");
+        AST_PRINT_PAD(depth+1);
+        printf("Step {\n");
+        print_element(for_element->step, depth+2);
+    }
+
+    printf("\n");
+    AST_PRINT_PAD(depth+1);
+    printf("},\n");
+    AST_PRINT_PAD(depth+1);
+    printf("Do {\n");
+    print_element(for_element->statements, depth+2);
+    printf("\n");
+    AST_PRINT_PAD(depth+1);
+    printf("}\n");
+    AST_PRINT_PAD(depth);
+    printf("}");
+}
+
+size_t element_size_For(const Element* for_elem)
+{
+    return sizeof(For);
+}
+
+void compute_ptr_For(Element* for_elem, void* ast_base)
+{
+    For* for_element = (For*)for_elem;
+    for_element->initial_assignment = OFFSET_PTR((size_t)for_element->initial_assignment);
+    for_element->stop = OFFSET_PTR((size_t)for_element->stop);
+    for_element->statements = OFFSET_PTR((size_t)for_element->statements);
+    
+    compute_ptr(for_element->initial_assignment, ast_base);
+    compute_ptr(for_element->stop, ast_base);
+    compute_ptr(for_element->statements, ast_base);
+
+    if (for_element->step != (void*)-1)
+    {
+        for_element->step = OFFSET_PTR((size_t)for_element->step);
+        compute_ptr(for_element->step, ast_base);
+    }
+    else
+    {
+        for_element->step = NULL;
+    }
+}
