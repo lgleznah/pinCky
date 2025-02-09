@@ -18,6 +18,7 @@ typedef struct
 } vsd_array;
 
 void init_vsd_array(vsd_array* array, size_t initial_size);
+void clear_vsd_array(vsd_array* array);
 void free_vsd_array(vsd_array* array);
 size_t allocate_vsd_array(vsd_array* array, size_t bytes);
 

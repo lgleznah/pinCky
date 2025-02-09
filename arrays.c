@@ -14,6 +14,11 @@ void init_vsd_array(vsd_array* array, size_t initial_size)
     array->data = malloc(initial_size);
 }
 
+void clear_vsd_array(vsd_array* array)
+{
+    array->used = 0;
+}
+
 void free_vsd_array(vsd_array* array)
 {
     free((void*) (array->data));

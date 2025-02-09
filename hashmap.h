@@ -19,6 +19,7 @@ typedef struct hashmap
 } hashmap;
 
 void init_hashmap(hashmap* hm, int n_buckets, int bucket_capacity);
+void clear_hashmap(hashmap* hm);
 void free_hashmap(hashmap* hm);
 
 void hashmap_set(hashmap* hm, string_type key, size_t value);

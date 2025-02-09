@@ -14,6 +14,12 @@ void init_environment(environment* e, environment* parent)
 
 void clear_environment(environment* e)
 {
+    clear_hashmap(&e->variables);
+    clear_vsd_array(&e->variables_memory);
+}
+
+void free_environment(environment* e)
+{
     free_hashmap(&e->variables);
     free_vsd_array(&e->variables_memory);
 }
@@ -99,4 +105,9 @@ expression_result get_variable(environment* state, string_type name, int line)
     }
 
     PRINT_INTERPRETER_ERROR_AND_QUIT(line, "Cannot find variable '%.*s'", name.length, name.string_value);
+}
+
+void set_environment_parent(environment* state, environment* parent)
+{
+    state->parent = parent;
 }

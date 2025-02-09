@@ -2,6 +2,10 @@
 
 #include "arrays.h"
 #include "string_type.h"
+#include "hashmap.h"
+
+
+#define STACK_SIZE 1024
 
 typedef enum
 {
@@ -16,9 +20,20 @@ typedef int integer_type;
 typedef double float_type;
 typedef int boolean_type;
 
+typedef struct environment environment;
+
+struct environment
+{
+    hashmap variables;
+    vsd_array variables_memory;
+    environment* parent;
+};
+
 typedef struct
 {
     vss_array memory;
+    environment environ_stack[STACK_SIZE];
+    int stack_index;
 } interpreter;
 
 typedef struct

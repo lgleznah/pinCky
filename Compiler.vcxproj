@@ -333,6 +333,7 @@
   <ItemGroup>
     <Content Include="scripts\mandelbrot.pinky" />
     <Content Include="scripts\myscript.pinky" />
+    <Content Include="scripts\pikumandel.pinky" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

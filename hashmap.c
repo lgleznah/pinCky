@@ -21,6 +21,14 @@ void init_hashmap(hashmap* hm, int n_buckets, int bucket_capacity)
     hm->n_buckets = n_buckets;
 }
 
+void clear_hashmap(hashmap* hm)
+{
+    for (int i = 0; i < hm->n_buckets; i++)
+    {
+        hm->bucket_element_count[i] = 0;
+    }
+}
+
 void free_hashmap(hashmap* hm)
 {
     free(hm->bucket_elements);

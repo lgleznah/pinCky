@@ -1,7 +1,7 @@
 #pragma once
 
 #include "interpreter_commons.h"
-#include "state.h"
+
 
 static expression_result true_expression = {.type = BOOL_VALUE, .value.bool_value = 1};
 static expression_result false_expression = {.type = BOOL_VALUE, .value.bool_value = 0};

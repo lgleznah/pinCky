@@ -5,15 +5,27 @@
 #include "model.h"
 #include "types.h"
 #include "utils.h"
+#include "state.h"
+
+#define CHECK_STACK_OVERFLOW do {if (interpreter->stack_index == (STACK_SIZE - 1)) {PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Stack overflow!\n");}} while(0)
 
 void init_interpreter(interpreter* interpreter)
 {
     init_vss_array(&interpreter->memory, 65535);
+    for (int i = 0; i < STACK_SIZE; i++)
+    {
+        init_environment(&interpreter->environ_stack[i], NULL);
+    }
+    interpreter->stack_index = 0;
 }
 
 void free_interpreter(interpreter* interpreter)
 {
     free_vss_array(&interpreter->memory);
+    for (int i = 0; i < STACK_SIZE; i++)
+    {
+        free_environment(&interpreter->environ_stack[i]);
+    }
 }
 
 expression_result interpret(interpreter* interpreter, void* ast_node, environment* env)
@@ -58,17 +70,21 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
 
                 if (test_result.value.bool_value)
                 {
-                    environment child;
-                    init_environment(&child, env);
-                    interpret(interpreter, if_stmt->then_branch, &child);
-                    clear_environment(&child);
+                    CHECK_STACK_OVERFLOW;
+                    interpreter->stack_index += 1;
+                    set_environment_parent(&interpreter->environ_stack[interpreter->stack_index], env);
+                    interpret(interpreter, if_stmt->then_branch, &interpreter->environ_stack[interpreter->stack_index]);
+                    clear_environment(&interpreter->environ_stack[interpreter->stack_index]);
+                    interpreter->stack_index -= 1;
                 }
                 else if(if_stmt->else_branch != NULL)
                 {
-                    environment child;
-                    init_environment(&child, env);
-                    interpret(interpreter, if_stmt->else_branch, &child);
-                    clear_environment(&child);
+                    CHECK_STACK_OVERFLOW;
+                    interpreter->stack_index += 1;
+                    set_environment_parent(&interpreter->environ_stack[interpreter->stack_index], env);
+                    interpret(interpreter, if_stmt->else_branch, &interpreter->environ_stack[interpreter->stack_index]);
+                    clear_environment(&interpreter->environ_stack[interpreter->stack_index]);
+                    interpreter->stack_index -= 1;
                 }
 
                 return (expression_result) {.type = NONE};
@@ -81,31 +97,34 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                     PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Condition test is not boolean\n");
                 }
 
-                environment while_child;
-                init_environment(&while_child, env);
+                CHECK_STACK_OVERFLOW;
+                interpreter->stack_index += 1;
+                set_environment_parent(&interpreter->environ_stack[interpreter->stack_index], env);
                 while(while_test_result.value.bool_value)
                 {
-                    interpret(interpreter, while_stmt->statements, &while_child);
+                    interpret(interpreter, while_stmt->statements, &interpreter->environ_stack[interpreter->stack_index]);
                     while_test_result = interpret(interpreter, while_stmt->condition, env);
                 }
-                clear_environment(&while_child);
+                clear_environment(&interpreter->environ_stack[interpreter->stack_index]);
+                interpreter->stack_index -= 1;
 
                 return (expression_result) {.type = NONE};
 
             case For_stmt:
                 For* for_stmt = ast_node;
-                environment for_child;
-                init_environment(&for_child, env);
+                CHECK_STACK_OVERFLOW;
+                interpreter->stack_index += 1;
+                set_environment_parent(&interpreter->environ_stack[interpreter->stack_index], env);
             
-                interpret(interpreter, for_stmt->initial_assignment, &for_child);
+                interpret(interpreter, for_stmt->initial_assignment, &interpreter->environ_stack[interpreter->stack_index]);
                 Identifier* iterator_identifier = (Identifier*)(((Assignment*)for_stmt->initial_assignment)->lhs);
-                expression_result iterator = get_variable(&for_child, iterator_identifier->name, element_line);
-                expression_result stop_value = interpret(interpreter, for_stmt->stop, &for_child);
+                expression_result iterator = get_variable(&interpreter->environ_stack[interpreter->stack_index], iterator_identifier->name, element_line);
+                expression_result stop_value = interpret(interpreter, for_stmt->stop, &interpreter->environ_stack[interpreter->stack_index]);
                 expression_result step_value = (expression_result) {.type = NONE};
 
                 if (for_stmt->step != NULL)
                 {
-                    step_value = interpret(interpreter, for_stmt->step, &for_child);
+                    step_value = interpret(interpreter, for_stmt->step, &interpreter->environ_stack[interpreter->stack_index]);
                     if (step_value.type != INT_VALUE)
                     {
                         PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "For step value must be an integer.");
@@ -124,14 +143,16 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
             
                 while(iterator.value.int_value < stop_value.value.int_value)
                 {
-                    interpret(interpreter, for_stmt->statements, &for_child);
+                    interpret(interpreter, for_stmt->statements, &interpreter->environ_stack[interpreter->stack_index]);
                     int step = (for_stmt->step != NULL) ? step_value.value.int_value : 1;
                     expression_result new_iter_value = (expression_result) {.type = INT_VALUE, .value.int_value = iterator.value.int_value + step};
-                    set_variable(&for_child, iterator_identifier->name, new_iter_value);
-                    iterator = get_variable(&for_child, iterator_identifier->name, element_line);
+                    set_variable(&interpreter->environ_stack[interpreter->stack_index], iterator_identifier->name, new_iter_value);
+                    iterator = get_variable(&interpreter->environ_stack[interpreter->stack_index], iterator_identifier->name, element_line);
                 }
             
-                clear_environment(&for_child);
+                clear_environment(&interpreter->environ_stack[interpreter->stack_index]);
+                interpreter->stack_index -= 1;
+
                 return (expression_result) {.type = NONE};
 
             case Assignment_stmt:
@@ -536,8 +557,6 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
 void interpret_ast(interpreter* interpreter, void* ast_node)
 {
     // Create new environment, and interpret the AST
-    environment env;
-    init_environment(&env, NULL);
-    interpret(interpreter, ast_node, &env);
-    clear_environment(&env);
+    interpret(interpreter, ast_node, &interpreter->environ_stack[0]);
+    clear_environment(&interpreter->environ_stack[0]);
 }
