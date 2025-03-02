@@ -331,6 +331,7 @@
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include=".gitattributes" />
     <Content Include="scripts\mandelbrot.pinky" />
     <Content Include="scripts\myscript.pinky" />
     <Content Include="scripts\pikumandel.pinky" />
