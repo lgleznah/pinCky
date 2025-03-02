@@ -10,8 +10,8 @@ void init_hashmap(hashmap* hm, int n_buckets, int bucket_capacity)
     if (n_buckets <= 0 || bucket_capacity <= 0)
     {
         printf("Cannot initialise hashmap with zero or less buckets or bucket capacity. Defaulting to 32 buckets and 32 capacity");
-        n_buckets = 32;
-        bucket_capacity = 32;
+        n_buckets = 1;
+        bucket_capacity = 1;
     }
 
     hm->bucket_element_count = calloc(n_buckets, sizeof(int));
@@ -42,14 +42,14 @@ void hashmap_set(hashmap* hm, string_type key, size_t value)
 {
     unsigned int hash = string_hash(&key) % hm->n_buckets;
     int bucket_usage = hm->bucket_element_count[hash];
-    hm_entry* bucket = &hm->bucket_elements[(int)(hash * hm->bucket_capacity)];
 
     // If the element exists, replace it with new value. Otherwise, add it to the hashmap
     for (int i = 0; i < bucket_usage; i++)
     {
-        if (string_comparison(&bucket[i].key, &key, COMPARE_EQ))
+        unsigned int element_idx = hash + (i * hm->bucket_capacity);
+        if (string_comparison(&hm->bucket_elements[element_idx].key, &key, COMPARE_EQ))
         {
-            bucket[i].value = value;
+            hm->bucket_elements[element_idx].value = value;
             return;
         }
     }
@@ -66,26 +66,25 @@ void hashmap_set(hashmap* hm, string_type key, size_t value)
         hm->bucket_elements = temp;
     }
 
-    bucket = &hm->bucket_elements[(int)(hash * hm->bucket_capacity)];
+    hm_entry* bucket = &hm->bucket_elements[hash + (bucket_usage * hm->bucket_capacity)];
     bucket[bucket_usage].key = key;
     bucket[bucket_usage].value = value;
 
     hm->bucket_element_count[hash]++;
-    return;
 }
 
 int hashmap_get(const hashmap* hm, const string_type* key, size_t* value)
 {
     unsigned int hash = string_hash(key) % hm->n_buckets;
     int bucket_usage = hm->bucket_element_count[hash];
-    hm_entry* bucket = &hm->bucket_elements[(int)(hash * hm->bucket_capacity)];
 
     // If the element exists, return it. Otherwise, show an error
     for (int i = 0; i < bucket_usage; i++)
     {
-        if (string_comparison(&bucket[i].key, key, COMPARE_EQ))
+        unsigned int element_idx = hash + (i * hm->bucket_capacity);
+        if (string_comparison(&hm->bucket_elements[element_idx].key, key, COMPARE_EQ))
         {
-            *value = bucket[i].value;
+            *value = hm->bucket_elements[element_idx].value;
             return 0;
         }
     }
