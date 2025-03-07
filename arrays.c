@@ -6,6 +6,8 @@
 
 MAKE_FSD_ARRAY_FUNCTIONS(token, token)
 MAKE_FSD_ARRAY_FUNCTIONS(size_t, statement)
+MAKE_FSD_ARRAY_FUNCTIONS(string_type, string)
+MAKE_FSD_ARRAY_FUNCTIONS(size_t, expression)
 
 void init_vsd_array(vsd_array* array, size_t initial_size)
 {

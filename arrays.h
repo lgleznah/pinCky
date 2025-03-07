@@ -8,6 +8,8 @@
 // Fixed element-size dynamic arrays for tokens and statement offsets
 MAKE_FSD_ARRAY_HEADERS(token, token)
 MAKE_FSD_ARRAY_HEADERS(size_t, statement)
+MAKE_FSD_ARRAY_HEADERS(string_type, string)
+MAKE_FSD_ARRAY_HEADERS(size_t, expression)
 
 // Variable element-size dynamic array (VSD array). Used for the AST structure and for environment variables
 typedef struct

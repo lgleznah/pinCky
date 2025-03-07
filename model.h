@@ -19,7 +19,8 @@ enum EXPRESSION_TYPES
     Identifier_expr,
     BinOp_expr,
     UnOp_expr,
-    Grouping_expr
+    Grouping_expr,
+    FuncCall_expr
 };
 
 enum STATEMENT_TYPES
@@ -29,7 +30,8 @@ enum STATEMENT_TYPES
     Assignment_stmt,
     Print_stmt,
     If_stmt,
-    For_stmt
+    For_stmt,
+    FuncDecl_stmt
 };
 
 enum SUPERTYPES
@@ -111,11 +113,10 @@ void compute_ptr_Bool(Element* bool_elem, void* ast_base);
 typedef struct String
 {
     Element base;
-    char* string;
-    int length;
+    string_type value;
 } String;
 
-void init_String(String* string_elem, char* string, int length, int line);
+void init_String(String* string_elem, string_type value, int line);
 void print_String(const Element* string_elem, int depth);
 size_t element_size_String(const Element* string_elem);
 void compute_ptr_String(Element* string_elem, void* ast_base);
@@ -250,3 +251,42 @@ void init_For(For* for_elem, size_t initial_assignment, size_t stop, size_t step
 void print_For(const Element* for_elem, int depth);
 size_t element_size_For(const Element* for_elem);
 void compute_ptr_For(Element* for_elem, void* ast_base);
+
+// Function declarations
+typedef struct FuncDecl
+{
+    Element base;
+    string_type name;
+    size_t num_params;
+    void* statements;
+} FuncDecl;
+
+void init_FuncDecl(FuncDecl* func_decl_elem, string_type name, string_array* params, size_t statements, void* ast_base, int line);
+void print_FuncDecl(const Element* func_decl_elem, int depth);
+size_t element_size_FuncDecl(const Element* func_decl_elem);
+void compute_ptr_FuncDecl(Element* func_decl_elem, void* ast_base);
+
+// Function parameter
+/*typedef struct Param
+{
+    Element base;
+    string_type name;    
+} Params;
+
+void init_Param(Params* param_elem, string_type name, int line);
+void print_Param(const Element* param_elem, int depth);
+size_t element_size_Param(const Element* param_elem);
+void compute_ptr_Param(Element* param_elem, void* ast_base);*/
+
+// Function calls
+typedef struct FuncCall
+{
+    Element base;
+    string_type name;
+    size_t num_args;
+} FuncCall;
+
+void init_FuncCall(FuncCall* func_call_elem, string_type name, expression_array* args, void* ast_base, int line);
+void print_FuncCall(const Element* func_call_elem, int depth);
+size_t element_size_FuncCall(const Element* func_call_elem);
+void compute_ptr_FuncCall(Element* func_call_elem, void* ast_base);

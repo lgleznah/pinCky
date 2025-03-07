@@ -182,7 +182,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 return ((Bool*)ast_node)->value ? true_expression : false_expression;
 
             case String_expr:
-                return (expression_result) {.type = STRING_VALUE, .value.string_value.string_value = ((String*)ast_node)->string, .value.string_value.length = ((String*)ast_node)->length};
+                return (expression_result) {.type = STRING_VALUE, .value.string_value = ((String*)ast_node)->value};
 
             case Identifier_expr:
                 return get_variable(env, ((Identifier*)ast_node)->name, element_line);

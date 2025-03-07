@@ -107,7 +107,7 @@ void compute_ptr_Bool(Element* bool_elem, void* ast_base) {}
 /// STRING FUNCTIONS
 ///////////////////////////////////////////////
 
-void init_String(String* string_elem, char* string, int length, int line)
+void init_String(String* string_elem, string_type value, int line)
 {
     static const ElementInterface vtable = { print_String, element_size_String, compute_ptr_String };
     static Element base = { 0, 0, &vtable};
@@ -115,15 +115,15 @@ void init_String(String* string_elem, char* string, int length, int line)
 
     string_elem->base.line = line;
     string_elem->base.tag = SET_ELEMENT_TYPE(Expression, String_expr);
-    string_elem->string = string;
-    string_elem->length = length;
+    string_elem->value.length = value.length;
+    string_elem->value.string_value = value.string_value;
 }
 
 void print_String(const Element* string_elem, int depth)
 {
     const String* string_element = (const String*)string_elem;
     AST_PRINT_PAD(depth);
-    printf("String[%.*s]", string_element->length, string_element->string);
+    printf("String[%.*s]", string_element->value.length, string_element->value.string_value);
 }
 
 // Strings are constant-sized in the AST data array. Just return their size
@@ -747,5 +747,146 @@ void compute_ptr_For(Element* for_elem, void* ast_base)
     else
     {
         for_element->step = NULL;
+    }
+}
+
+///////////////////////////////////////////////
+/// FUNCDECL FUNCTIONS
+///////////////////////////////////////////////
+
+void init_FuncDecl(FuncDecl* func_decl_elem, string_type name, string_array* params, size_t statements, void* ast_base, int line)
+{
+    void* statements_ptr = OFFSET_PTR(statements);
+
+    if (!CHECK_ELEMENT_SUPERTYPE(statements_ptr, Statement) || !CHECK_ELEMENT_TYPE(statements_ptr, StatementList_stmt))
+    {
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "Function body must be a list of statements");
+    }
+
+    static const ElementInterface vtable = { print_FuncDecl, element_size_FuncDecl, compute_ptr_FuncDecl };
+    static Element base = { 0, 0, &vtable};
+    memcpy(&func_decl_elem->base, &base, sizeof(base));
+
+    func_decl_elem->base.line = line;
+    func_decl_elem->base.tag = SET_ELEMENT_TYPE(Statement, FuncDecl_stmt);
+    func_decl_elem->name = name;
+    func_decl_elem->num_params = params->used;
+    func_decl_elem->statements = (void*)statements;
+
+    // Insert function parameters into memory after the struct itself
+    string_type* param_ptrs = (string_type*)((char*)func_decl_elem + sizeof(FuncDecl));
+    for (size_t i = 0; i < params->used; i++)
+    {
+        param_ptrs->length = params->data[i].length;
+        param_ptrs->string_value = params->data[i].string_value;
+        param_ptrs++;
+    }
+}
+
+void print_FuncDecl(const Element* func_decl_elem, int depth)
+{
+    const FuncDecl* func_decl_element = (const FuncDecl*) func_decl_elem;
+    AST_PRINT_PAD(depth);
+    printf("Function declaration [%.*s] (", func_decl_element->name.length, func_decl_element->name.string_value);
+
+    const string_type* params_ptrs = (const string_type*)((const char*)func_decl_element + sizeof(FuncDecl));
+    for (size_t i = 0; i < func_decl_element->num_params; i++)
+    {
+        printf("%.*s", params_ptrs->length, params_ptrs->string_value);
+        if (i != func_decl_element->num_params - 1)
+        {
+            printf(", ");
+        }
+        params_ptrs++;
+    }
+
+    printf(") {\n");
+    print_element(func_decl_element->statements, depth+1);
+    printf("\n");
+    AST_PRINT_PAD(depth);
+    printf("}");
+}
+
+size_t element_size_FuncDecl(const Element* func_decl_elem)
+{
+    const FuncDecl* func_decl_element = (const FuncDecl*) func_decl_elem;
+    return sizeof(FuncDecl) + func_decl_element->num_params * sizeof(string_type);
+}
+
+void compute_ptr_FuncDecl(Element* func_decl_elem, void* ast_base)
+{
+     FuncDecl* func_decl_element = (FuncDecl*) func_decl_elem;
+     func_decl_element->statements = OFFSET_PTR((size_t)func_decl_element->statements);
+     compute_ptr(func_decl_element->statements, ast_base);   
+}
+
+///////////////////////////////////////////////
+/// FUNCCALL FUNCTIONS
+///////////////////////////////////////////////
+
+void init_FuncCall(FuncCall* func_call_elem, string_type name, expression_array* args, void* ast_base, int line)
+{
+    for (size_t i = 0; i < args->used; i++)
+    {
+        if (!CHECK_ELEMENT_SUPERTYPE(args->data[i] + (char*)(ast_base), Expression))
+        {
+            PRINT_SYNTAX_ERROR_AND_QUIT(line, "Element in expression list must be an expression.");
+        }
+    }
+    
+    static const ElementInterface vtable = { print_FuncCall, element_size_FuncCall, compute_ptr_FuncCall };
+    static Element base = { 0, 0, &vtable};
+    memcpy(&func_call_elem->base, &base, sizeof(base));
+
+    func_call_elem->base.line = line;
+    func_call_elem->base.tag = SET_ELEMENT_TYPE(Expression, FuncCall_expr);
+    func_call_elem->name = name;
+    func_call_elem->num_args = args->used;
+
+    // Insert function arguments into memory after the struct itself
+    void** args_ptrs = (void**)((char*)func_call_elem + sizeof(FuncCall));
+    for (size_t i = 0; i < args->used; i++)
+    {
+        *args_ptrs++ = (void*)args->data[i];
+    }
+}
+
+void print_FuncCall(const Element* func_call_elem, int depth)
+{
+    const FuncCall* func_call_element = (const FuncCall*) func_call_elem;
+    AST_PRINT_PAD(depth);
+    printf("Function call [%.*s] {\n", func_call_element->name.length, func_call_element->name.string_value);
+
+    const void** args_ptrs = (const void**)((const char*)func_call_element + sizeof(FuncCall));
+    for (size_t i = 0; i < func_call_element->num_args; i++)
+    {
+        print_element(*args_ptrs++, depth+1);
+        if (i != func_call_element->num_args - 1)
+        {
+            printf(",\n");
+        }
+    }
+    
+    printf("\n");
+    AST_PRINT_PAD(depth);
+    printf("}");
+    
+}
+
+size_t element_size_FuncCall(const Element* func_call_elem)
+{
+    const FuncCall* func_call_element = (const FuncCall*) func_call_elem;
+    return sizeof(FuncCall) + func_call_element->num_args * sizeof(void*);
+}
+
+void compute_ptr_FuncCall(Element* func_call_elem, void* ast_base)
+{
+    FuncCall* func_call_element = (FuncCall*)func_call_elem;
+    void** args_ptrs = (void**)((char*)func_call_element + sizeof(FuncCall));
+    
+    for (size_t i = 0; i < func_call_element->num_args; i++)
+    {
+        *args_ptrs = OFFSET_PTR((size_t)*args_ptrs);
+        compute_ptr(*args_ptrs++, ast_base);
     }
 }

@@ -161,6 +161,11 @@ size_t stmt(parser* parser)
         return for_stmt(parser);
     }
 
+    if (parser_peek(parser)->type == TOK_FUNC)
+    {
+        return func_decl(parser);
+    }
+
     // If none of the above, this statement is an assignment or a function call
     size_t lhs = expr(parser);
     if (parser_match(parser, TOK_ASSIGN))
@@ -172,7 +177,9 @@ size_t stmt(parser* parser)
         return assignmnent;
     }
 
-    return -1;
+    FuncCall* func_call = OFFSET_PTR(lhs);
+    func_call->base.tag = SET_ELEMENT_TYPE(Statement, FuncCall_expr);
+    return lhs;
 }
 
 // <print> ::= 'print' <expr>
@@ -249,6 +256,35 @@ size_t for_stmt(parser* parser)
     size_t result = allocate_vsd_array(&parser->ast_array, sizeof(For));
     void* initial_assignment_ptr = OFFSET_PTR(initial_assignment);
     init_For(OFFSET_PTR(result), initial_assignment, stop, step, statements, parser->ast_array.data, GET_ELEMENT_LINE(initial_assignment_ptr));
+    return result;
+}
+
+// <func_decl> ::= "func" <name> "(" <params>? ")" <body_stmts> "end"
+size_t func_decl(parser* parser)
+{
+    string_array params;
+    init_string_array(&params, 65536);
+    
+    parser_expect(parser, TOK_FUNC);
+    token* func_name = parser_expect(parser, TOK_IDENTIFIER);
+    string_type func_name_str = { .length = func_name->token.length, .string_value = func_name->token.string_value};
+    parser_expect(parser, TOK_LPAREN);
+
+    token* param_token;
+    while((param_token = parser_match(parser, TOK_IDENTIFIER)))
+    {
+        string_type param = { .length = param_token->token.length, .string_value = param_token->token.string_value };
+        insert_string_array(&params, param);
+        parser_match(parser, TOK_COMMA);
+    }
+
+    parser_expect(parser, TOK_RPAREN);
+    size_t statements = stmts(parser);
+    parser_expect(parser, TOK_END);
+
+    size_t result = allocate_vsd_array(&parser->ast_array, sizeof(FuncDecl) + params.used * sizeof(string_type));
+    init_FuncDecl(OFFSET_PTR(result), func_name_str, &params, statements, parser->ast_array.data, func_name->line);
+
     return result;
 }
 
@@ -428,7 +464,8 @@ size_t primary(parser* parser)
     {
         token* string_token = parser_previous_token(parser);
         size_t string = allocate_vsd_array(&parser->ast_array, sizeof(String));
-        init_String(OFFSET_PTR(string), string_token->token.string_value+1, string_token->token.length-2, string_token->line);
+        string_type str_value = {.length = string_token->token.length - 2, .string_value = string_token->token.string_value+1};
+        init_String(OFFSET_PTR(string), str_value, string_token->line);
         return string;
     }
     if (parser_match(parser, TOK_LPAREN))
@@ -448,9 +485,31 @@ size_t primary(parser* parser)
         }
     }
 
-    // If none of the above, it is an identifier
+    // If none of the above, it is an identifier or a function call
     token* identifier_token = parser_expect(parser, TOK_IDENTIFIER);
-    size_t identifier = allocate_vsd_array(&parser->ast_array, sizeof(Identifier));
-    init_Identifier(OFFSET_PTR(identifier), identifier_token->token.string_value, identifier_token->token.length, identifier_token->line);
-    return identifier;
+    if (!parser_match(parser, TOK_LPAREN))
+    {
+        size_t identifier = allocate_vsd_array(&parser->ast_array, sizeof(Identifier));
+        init_Identifier(OFFSET_PTR(identifier), identifier_token->token.string_value, identifier_token->token.length, identifier_token->line);
+        return identifier;
+    }
+    else
+    {
+        expression_array args;
+        init_expression_array(&args, 65536);
+        string_type func_name_str = { .length = identifier_token->token.length, .string_value = identifier_token->token.string_value};
+        
+        while(!parser_match(parser, TOK_RPAREN))
+        {
+            size_t arg = expr(parser);
+            insert_expression_array(&args, arg);
+            parser_match(parser, TOK_COMMA);
+        }
+
+        size_t result = allocate_vsd_array(&parser->ast_array, sizeof(FuncCall) + args.used * sizeof(void*));
+        init_FuncCall(OFFSET_PTR(result), func_name_str, &args, parser->ast_array.data, identifier_token->line);
+
+        return result;
+    }
+    PRINT_SYNTAX_ERROR_AND_QUIT(parser_peek(parser)->line, "Unexpected primary token: %s", token_type_str[parser->tokens->data[parser->curr_token].type]);
 }
