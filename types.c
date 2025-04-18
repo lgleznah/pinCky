@@ -5,7 +5,7 @@
 
 #include "utils.h"
 
-string_type cast_to_string(interpreter* interpreter, expression_result expression)
+string_type cast_to_string(vss_array* memory, expression_result expression)
 {
     char num_value[256];
     switch (expression.type)
@@ -15,13 +15,13 @@ string_type cast_to_string(interpreter* interpreter, expression_result expressio
 
         case INT_VALUE:
             int int_length = snprintf(num_value, 256, "%d", expression.value.int_value);
-            char* converted_int_string = allocate_vss_array(&interpreter->memory, int_length);
+            char* converted_int_string = allocate_vss_array(memory, int_length);
             memcpy_s(converted_int_string, int_length, num_value, int_length);
             return (string_type) {.length = int_length, .string_value = converted_int_string};
 
         case FLOAT_VALUE:
             int float_length = snprintf(num_value, 256, "%f", expression.value.float_value);
-            char* converted_float_string = allocate_vss_array(&interpreter->memory, float_length);
+            char* converted_float_string = allocate_vss_array(memory, float_length);
             memcpy_s(converted_float_string, float_length, num_value, float_length);
             return (string_type) {.length = float_length, .string_value = converted_float_string};
 
@@ -36,7 +36,7 @@ string_type cast_to_string(interpreter* interpreter, expression_result expressio
     }
 }
 
-int cast_to_bool(interpreter* interpreter, expression_result expression)
+int cast_to_bool(vss_array* memory, expression_result expression)
 {
     switch (expression.type)
     {
@@ -60,9 +60,9 @@ int cast_to_bool(interpreter* interpreter, expression_result expression)
     }
 }
 
-string_type string_addition(interpreter* interpreter, string_type string1, string_type string2)
+string_type string_addition(vss_array* memory, string_type string1, string_type string2)
 {
-    char* destination_string = allocate_vss_array(&interpreter->memory, string1.length+string2.length);
+    char* destination_string = allocate_vss_array(memory, string1.length+string2.length);
     
     for(int i = 0; i < string1.length; i++)
     {

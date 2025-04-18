@@ -4,7 +4,6 @@
 #include "string_type.h"
 #include "hashmap.h"
 
-
 #define STACK_SIZE 1024
 
 typedef enum
@@ -26,6 +25,7 @@ struct environment
 {
     hashmap variables;
     vsd_array variables_memory;
+    hashmap functions;
     environment* parent;
 };
 
@@ -35,6 +35,12 @@ typedef struct
     environment environ_stack[STACK_SIZE];
     int stack_index;
 } interpreter;
+
+typedef struct
+{
+    size_t addr;
+    environment* env;
+} function;
 
 typedef struct
 {

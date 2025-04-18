@@ -2,11 +2,18 @@
 --- Print the factorial of a number
 ------------------------------------
 func factorial(n, x)
+    func inner(test)
+        println("Accessing inner variable " + test)
+        println("Accessing outer variable " + x)
+    end
+    
     mul := 1
     for i := 1, n do
         mul := mul * i
     end
     println("The factorial of " + n + " is " + mul)
+    println("There is another parameter whose value is " + x)
+    inner(42.0)
 end
 
-factorial(5)
+factorial(5, "banana")

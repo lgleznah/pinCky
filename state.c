@@ -9,18 +9,21 @@ void init_environment(environment* e, environment* parent)
 {
     init_hashmap(&e->variables, 32, 32);
     init_vsd_array(&e->variables_memory, 65535);
+    init_hashmap(&e->functions, 32, 32);
     e->parent = parent;
 }
 
 void clear_environment(environment* e)
 {
     clear_hashmap(&e->variables);
+    clear_hashmap(&e->functions);
     clear_vsd_array(&e->variables_memory);
 }
 
 void free_environment(environment* e)
 {
     free_hashmap(&e->variables);
+    free_hashmap(&e->functions);
     free_vsd_array(&e->variables_memory);
 }
 
@@ -105,6 +108,46 @@ expression_result get_variable(environment* state, string_type name, int line)
     }
 
     PRINT_INTERPRETER_ERROR_AND_QUIT(line, "Cannot find variable '%.*s'", name.length, name.string_value);
+}
+
+int set_function(environment* state, string_type func_name, function func)
+{
+    environment* current = state;
+    size_t func_offset = 0;
+    while(current)
+    {
+        if (!hashmap_get(&current->functions, &func_name, &func_offset))
+        {
+            // Function was already declared, this is a no-go!
+            return -1;
+        }
+        current = current->parent;
+    }
+
+    // Hacky as fuck. To store the current environment, we store an additional variable in the hashmap,
+    // whose name is the name of the function, PLUS the opening parenthesis of its params. But you cannot
+    // give a function a name which contains parameters, so this should be OK
+    hashmap_set(&state->functions, func_name, func.addr);
+    hashmap_set(&state->functions, (string_type) { .string_value=func_name.string_value, .length=func_name.length+1 }, (size_t)func.env);
+    return 0;
+}
+
+function get_function(environment* state, string_type func_name, int line)
+{
+    environment* current = state;
+    function func = {.addr=0, .env=NULL};
+    while(current)
+    {
+        if (!hashmap_get(&current->functions, &func_name, &func.addr))
+        {
+            string_type env_key = (string_type) { .string_value=func_name.string_value, .length=func_name.length+1 };
+            hashmap_get(&current->functions, &env_key, (size_t*) &func.env);
+            return func;
+        }
+        current = current->parent;
+    }
+
+    PRINT_INTERPRETER_ERROR_AND_QUIT(line, "Cannot find function '%.*s'", func_name.length, func_name.string_value);
 }
 
 void set_environment_parent(environment* state, environment* parent)

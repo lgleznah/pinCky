@@ -11,6 +11,6 @@ static string_type none_string = {.string_value = "none", .length = sizeof("none
 struct interpreter;
 struct expression_result;
 
-string_type cast_to_string(interpreter* interpreter, expression_result expression);
-boolean_type cast_to_bool(interpreter* interpreter, expression_result expression);
-string_type string_addition(interpreter* interpreter, string_type string1, string_type string2);
+string_type cast_to_string(vss_array* memory, expression_result expression);
+boolean_type cast_to_bool(vss_array* memory, expression_result expression);
+string_type string_addition(vss_array* memory, string_type string1, string_type string2);

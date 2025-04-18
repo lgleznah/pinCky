@@ -51,7 +51,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
             case Print_stmt:
                 Print* print_stmt = ast_node;
                 expression_result result = interpret(interpreter, print_stmt->expression, env);
-                string_type result_str = cast_to_string(interpreter, result);
+                string_type result_str = cast_to_string(&interpreter->memory, result);
                 printf("%.*s", result_str.length, result_str.string_value);
                 if (print_stmt->break_line)
                 {
@@ -141,7 +141,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                     PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "For iterator must be an integer.");
                 }
             
-                while(iterator.value.int_value < stop_value.value.int_value)
+                while(iterator.value.int_value <= stop_value.value.int_value)
                 {
                     interpret(interpreter, for_stmt->statements, &interpreter->environ_stack[interpreter->stack_index]);
                     int step = (for_stmt->step != NULL) ? step_value.value.int_value : 1;
@@ -162,6 +162,48 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 set_variable(env, lhs_identifier->name, rhs_result);
 
                 return (expression_result) {.type = NONE};
+
+            case FuncDecl_stmt:
+                FuncDecl* func_decl_stmt = ast_node;
+                if (set_function(env, func_decl_stmt->name, (function) {.addr = (size_t)func_decl_stmt, .env = env}) == -1)
+                {
+                    PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Function %.*s was already declared.", func_decl_stmt->name.length, func_decl_stmt->name.string_value);
+                }
+
+                return (expression_result) {.type = NONE};
+            
+            case FuncCall_expr:
+                // Get function name (and check if it was declared)
+                FuncCall* func_call_stmt = ast_node;
+                function func = get_function(env, func_call_stmt->name, element_line);
+                FuncDecl* func_decl = (FuncDecl*)func.addr;
+
+                // Check number of arguments of call and declaration
+                if (func_call_stmt->num_args != func_decl->num_params)
+                {
+                    PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Function %.*s was declared with %llu parameters, but %llu arguments were given", func_decl->name.length, func_decl->name.string_value, func_decl->num_params, func_call_stmt->num_args);
+                }
+
+                // Evaluate arguments, and add them to the function environment 
+                CHECK_STACK_OVERFLOW;
+                interpreter->stack_index += 1;
+                set_environment_parent(&interpreter->environ_stack[interpreter->stack_index], func.env);
+
+                void** expression_ptrs = (void**)((char*)(func_call_stmt) + sizeof(FuncCall));
+                string_type* param_ptrs = (string_type*)((char*)(func_decl) + sizeof(FuncDecl));
+                for (size_t i = 0; i < func_call_stmt->num_args; i++)
+                {
+                     expression_result arg = interpret(interpreter, *expression_ptrs++, env);
+                     string_type param = *param_ptrs++;
+                     set_variable(&interpreter->environ_stack[interpreter->stack_index], param, arg);
+                }
+
+                // All is ready -- interpret the function!
+                expression_result ret = interpret(interpreter, func_decl->statements, &interpreter->environ_stack[interpreter->stack_index]);
+                
+                clear_environment(&interpreter->environ_stack[interpreter->stack_index]);
+                interpreter->stack_index -= 1;
+                return ret;
             
             default:
                 PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Unknown statement type ID %d\n", element_type);
@@ -194,7 +236,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 // Logic operand shortcuts
                 if (binop_op == TOK_AND)
                 {
-                    if (cast_to_bool(interpreter, lhs))
+                    if (cast_to_bool(&interpreter->memory, lhs))
                     {
                         return interpret(interpreter, ((BinOp*)ast_node)->right, env);
                     }
@@ -203,7 +245,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
 
                 if (binop_op == TOK_OR)
                 {
-                    if (cast_to_bool(interpreter, lhs))
+                    if (cast_to_bool(&interpreter->memory, lhs))
                     {
                         return lhs;
                     }
@@ -234,7 +276,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                         // Case 3 for addition: one value is a string. Cast the other to string
                         if (lhs.type == STRING_VALUE || rhs.type == STRING_VALUE)
                         {
-                            return (expression_result) {.type = STRING_VALUE, .value.string_value = string_addition(interpreter, cast_to_string(interpreter, lhs), cast_to_string(interpreter, rhs))};
+                            return (expression_result) {.type = STRING_VALUE, .value.string_value = string_addition(&interpreter->memory, cast_to_string(&interpreter->memory, lhs), cast_to_string(&interpreter->memory, rhs))};
                         }
 
                         // Otherwise, this is an unsupported operation. Error-out
