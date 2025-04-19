@@ -31,7 +31,8 @@ enum STATEMENT_TYPES
     Print_stmt,
     If_stmt,
     For_stmt,
-    FuncDecl_stmt
+    FuncDecl_stmt,
+    Return_stmt
 };
 
 enum SUPERTYPES
@@ -203,9 +204,10 @@ typedef struct Assignment
     Element base;
     void* lhs;
     void* rhs;
+    int is_local;
 } Assignment;
 
-void init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, void* ast_base, int line);
+void init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, int is_local, void* ast_base, int line);
 void print_Assignment(const Element* assignment_elem, int depth);
 size_t element_size_Assignment(const Element* assignment_elem);
 void compute_ptr_Assignment(Element* assignment_elem, void* ast_base);
@@ -290,3 +292,14 @@ void init_FuncCall(FuncCall* func_call_elem, string_type name, expression_array*
 void print_FuncCall(const Element* func_call_elem, int depth);
 size_t element_size_FuncCall(const Element* func_call_elem);
 void compute_ptr_FuncCall(Element* func_call_elem, void* ast_base);
+
+typedef struct Return
+{
+    Element base;
+    void* expression;
+} Return;
+
+void init_Return(Return* return_elem, size_t expression, void* ast_base, int line);
+void print_Return(const Element* return_elem, int depth);
+size_t element_size_Return(const Element* return_elem);
+void compute_ptr_Return(Element* return_elem, void* ast_base);

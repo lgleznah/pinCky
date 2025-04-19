@@ -47,11 +47,11 @@ size_t get_value_size(expression_result value)
 // Set a variable value, either in the current environment (if it exists there), or in the
 // nearest parent in which it exists. If it does not exist, create it in the current environment.
 // For strings, new memory will always be allocated.
-void set_variable(environment* state, string_type name, expression_result value)
+void set_variable(environment* state, string_type name, expression_result value, int force_local)
 {
     environment* current = state;
     size_t variable_offset = 0;
-    while(current)
+    while(!force_local && current)
     {
         if (!hashmap_get(&current->variables, &name, &variable_offset))
         {
@@ -108,6 +108,23 @@ expression_result get_variable(environment* state, string_type name, int line)
     }
 
     PRINT_INTERPRETER_ERROR_AND_QUIT(line, "Cannot find variable '%.*s'", name.length, name.string_value);
+}
+
+
+void set_return(environment* state, expression_result value, int line)
+{
+    environment* current = state;
+    while (current->type != ENV_MAIN)
+    {
+        if (current->type == ENV_FUNC)
+        {
+            set_variable(current->parent, ret_var, value, 1);
+            return;
+        }
+        current = current->parent;
+    }
+
+    PRINT_INTERPRETER_ERROR_AND_QUIT(line, "Cannot return outside function.");
 }
 
 int set_function(environment* state, string_type func_name, function func)

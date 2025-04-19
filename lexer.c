@@ -17,11 +17,12 @@
 
 char* keywords[] = {
     "if", "then", "else", "true", "false", "and", "or", "while", "do", "for", "func", "null",
-    "end", "print", "println", "ret"
+    "end", "print", "println", "ret", "local"
 };
+
 token_type keyword_tokens[] = {
     TOK_IF, TOK_THEN, TOK_ELSE, TOK_TRUE, TOK_FALSE, TOK_AND, TOK_OR, TOK_WHILE, TOK_DO, TOK_FOR, TOK_FUNC, TOK_NULL,
-    TOK_END, TOK_PRINT, TOK_PRINTLN, TOK_RET
+    TOK_END, TOK_PRINT, TOK_PRINTLN, TOK_RET, TOK_LOCAL
 };
 
 void init_lexer(lexer* lexer, FILE* file)
@@ -242,7 +243,7 @@ void tokenize(lexer* lexer)
             int kw_found = 0;
             memcpy_s(kw_buff, lexer->curr - lexer->start, &lexer->buffer[lexer->start], lexer->curr - lexer->start);
             kw_buff[lexer->curr - lexer->start] = '\0';
-            for (int i = 0; i < 16; i++)
+            for (int i = 0; i < 17; i++)
             {
                 if (strcmp(kw_buff, keywords[i]) == 0)
                 {

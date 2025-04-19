@@ -21,12 +21,20 @@ typedef int boolean_type;
 
 typedef struct environment environment;
 
+typedef enum environment_type
+{
+    ENV_MAIN,
+    ENV_FUNC,
+    ENV_BLOCK
+} environment_type;
+
 struct environment
 {
     hashmap variables;
     vsd_array variables_memory;
     hashmap functions;
     environment* parent;
+    environment_type type;
 };
 
 typedef struct
@@ -34,7 +42,10 @@ typedef struct
     vss_array memory;
     environment environ_stack[STACK_SIZE];
     int stack_index;
+    int is_returning;
 } interpreter;
+
+static string_type ret_var = { .string_value = "(ret)", .length = 5 };
 
 typedef struct
 {

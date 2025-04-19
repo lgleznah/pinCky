@@ -1,13 +1,20 @@
 #include "interpreter.h"
 
 #include <math.h>
+#include <stdbool.h>
 
 #include "model.h"
 #include "types.h"
 #include "utils.h"
 #include "state.h"
 
-#define CHECK_STACK_OVERFLOW do {if (interpreter->stack_index == (STACK_SIZE - 1)) {PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Stack overflow!\n");}} while(0)
+#define CHECK_STACK_OVERFLOW do {if (interpreter->stack_index == (STACK_SIZE - 1)) {PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Environment stack overflow.\n");}} while(0)
+#define STOP_IF_RETURNING do {if (interpreter->is_returning) return (expression_result) {.type = NONE}; } while(0)
+#define BREAK_IF_RETURNING if (interpreter->is_returning) break 
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 void init_interpreter(interpreter* interpreter)
 {
@@ -17,6 +24,8 @@ void init_interpreter(interpreter* interpreter)
         init_environment(&interpreter->environ_stack[i], NULL);
     }
     interpreter->stack_index = 0;
+    interpreter->environ_stack[0].type = ENV_MAIN;
+    interpreter->is_returning = 0;
 }
 
 void free_interpreter(interpreter* interpreter)
@@ -34,6 +43,11 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
     int element_supertype = GET_ELEMENT_SUPERTYPE(ast_node);
     int element_line = ((Element*)ast_node)->line;
     
+#ifdef _WIN32
+    __try
+    {
+#endif
+    
     if (element_supertype == Statement)
     {
         switch (element_type)
@@ -44,6 +58,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 {
                     interpret(interpreter, *statement_ptrs++, env);
                     clear_vss_array(&interpreter->memory);
+                    STOP_IF_RETURNING;
                 }
 
                 return (expression_result) {.type = NONE};
@@ -73,6 +88,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                     CHECK_STACK_OVERFLOW;
                     interpreter->stack_index += 1;
                     set_environment_parent(&interpreter->environ_stack[interpreter->stack_index], env);
+                    interpreter->environ_stack[interpreter->stack_index].type = ENV_BLOCK;
                     interpret(interpreter, if_stmt->then_branch, &interpreter->environ_stack[interpreter->stack_index]);
                     clear_environment(&interpreter->environ_stack[interpreter->stack_index]);
                     interpreter->stack_index -= 1;
@@ -82,6 +98,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                     CHECK_STACK_OVERFLOW;
                     interpreter->stack_index += 1;
                     set_environment_parent(&interpreter->environ_stack[interpreter->stack_index], env);
+                    interpreter->environ_stack[interpreter->stack_index].type = ENV_BLOCK;
                     interpret(interpreter, if_stmt->else_branch, &interpreter->environ_stack[interpreter->stack_index]);
                     clear_environment(&interpreter->environ_stack[interpreter->stack_index]);
                     interpreter->stack_index -= 1;
@@ -100,9 +117,11 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 CHECK_STACK_OVERFLOW;
                 interpreter->stack_index += 1;
                 set_environment_parent(&interpreter->environ_stack[interpreter->stack_index], env);
+                interpreter->environ_stack[interpreter->stack_index].type = ENV_BLOCK;
                 while(while_test_result.value.bool_value)
                 {
                     interpret(interpreter, while_stmt->statements, &interpreter->environ_stack[interpreter->stack_index]);
+                    BREAK_IF_RETURNING;
                     while_test_result = interpret(interpreter, while_stmt->condition, env);
                 }
                 clear_environment(&interpreter->environ_stack[interpreter->stack_index]);
@@ -115,6 +134,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 CHECK_STACK_OVERFLOW;
                 interpreter->stack_index += 1;
                 set_environment_parent(&interpreter->environ_stack[interpreter->stack_index], env);
+                interpreter->environ_stack[interpreter->stack_index].type = ENV_BLOCK;
             
                 interpret(interpreter, for_stmt->initial_assignment, &interpreter->environ_stack[interpreter->stack_index]);
                 Identifier* iterator_identifier = (Identifier*)(((Assignment*)for_stmt->initial_assignment)->lhs);
@@ -144,9 +164,10 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 while(iterator.value.int_value <= stop_value.value.int_value)
                 {
                     interpret(interpreter, for_stmt->statements, &interpreter->environ_stack[interpreter->stack_index]);
+                    BREAK_IF_RETURNING;
                     int step = (for_stmt->step != NULL) ? step_value.value.int_value : 1;
                     expression_result new_iter_value = (expression_result) {.type = INT_VALUE, .value.int_value = iterator.value.int_value + step};
-                    set_variable(&interpreter->environ_stack[interpreter->stack_index], iterator_identifier->name, new_iter_value);
+                    set_variable(&interpreter->environ_stack[interpreter->stack_index], iterator_identifier->name, new_iter_value, false);
                     iterator = get_variable(&interpreter->environ_stack[interpreter->stack_index], iterator_identifier->name, element_line);
                 }
             
@@ -159,7 +180,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 Assignment* assignment_stmt = ast_node;
                 Identifier* lhs_identifier = assignment_stmt->lhs;
                 expression_result rhs_result = interpret(interpreter, assignment_stmt->rhs, env);
-                set_variable(env, lhs_identifier->name, rhs_result);
+                set_variable(env, lhs_identifier->name, rhs_result, assignment_stmt->is_local);
 
                 return (expression_result) {.type = NONE};
 
@@ -188,6 +209,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 CHECK_STACK_OVERFLOW;
                 interpreter->stack_index += 1;
                 set_environment_parent(&interpreter->environ_stack[interpreter->stack_index], func.env);
+                interpreter->environ_stack[interpreter->stack_index].type = ENV_FUNC;
 
                 void** expression_ptrs = (void**)((char*)(func_call_stmt) + sizeof(FuncCall));
                 string_type* param_ptrs = (string_type*)((char*)(func_decl) + sizeof(FuncDecl));
@@ -195,15 +217,23 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 {
                      expression_result arg = interpret(interpreter, *expression_ptrs++, env);
                      string_type param = *param_ptrs++;
-                     set_variable(&interpreter->environ_stack[interpreter->stack_index], param, arg);
+                     set_variable(&interpreter->environ_stack[interpreter->stack_index], param, arg, true);
                 }
 
                 // All is ready -- interpret the function!
-                expression_result ret = interpret(interpreter, func_decl->statements, &interpreter->environ_stack[interpreter->stack_index]);
-                
+                interpret(interpreter, func_decl->statements, &interpreter->environ_stack[interpreter->stack_index]);
+                interpreter->is_returning = 0;
+            
                 clear_environment(&interpreter->environ_stack[interpreter->stack_index]);
                 interpreter->stack_index -= 1;
-                return ret;
+                return (expression_result) {.type = NONE};
+
+            case Return_stmt:
+                Return* return_stmt = ast_node;
+                expression_result retval = interpret(interpreter, return_stmt->expression, env);
+                interpreter->is_returning = 1;
+                set_return(env, retval, element_line);
+                return (expression_result) {.type = NONE};
             
             default:
                 PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Unknown statement type ID %d\n", element_type);
@@ -588,17 +618,61 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
             case Grouping_expr:
                 return interpret(interpreter, ((Grouping*)ast_node)->expression, env);
 
+
+            case FuncCall_expr:
+                // Get function name (and check if it was declared)
+                FuncCall* func_call_stmt = ast_node;
+                function func = get_function(env, func_call_stmt->name, element_line);
+                FuncDecl* func_decl = (FuncDecl*)func.addr;
+
+                // Check number of arguments of call and declaration
+                if (func_call_stmt->num_args != func_decl->num_params)
+                {
+                    PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Function %.*s was declared with %llu parameters, but %llu arguments were given", func_decl->name.length, func_decl->name.string_value, func_decl->num_params, func_call_stmt->num_args);
+                }
+
+                // Evaluate arguments, and add them to the function environment 
+                CHECK_STACK_OVERFLOW;
+                interpreter->stack_index += 1;
+                set_environment_parent(&interpreter->environ_stack[interpreter->stack_index], func.env);
+                interpreter->environ_stack[interpreter->stack_index].type = ENV_FUNC;
+
+                void** expression_ptrs = (void**)((char*)(func_call_stmt) + sizeof(FuncCall));
+                string_type* param_ptrs = (string_type*)((char*)(func_decl) + sizeof(FuncDecl));
+                for (size_t i = 0; i < func_call_stmt->num_args; i++)
+                {
+                     expression_result arg = interpret(interpreter, *expression_ptrs++, env);
+                     string_type param = *param_ptrs++;
+                     set_variable(&interpreter->environ_stack[interpreter->stack_index], param, arg, true);
+                }
+
+                // All is ready -- interpret the function!
+                expression_result ret;
+                interpret(interpreter, func_decl->statements, &interpreter->environ_stack[interpreter->stack_index]);
+                ret = (interpreter->is_returning) ? get_variable(env, ret_var, element_line) : (expression_result) { .type = NONE };
+            
+                interpreter->is_returning = 0;
+                clear_environment(&interpreter->environ_stack[interpreter->stack_index]);
+                interpreter->stack_index -= 1;
+                return ret;
+            
             default:
                 PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Unknown expression type ID %d\n", element_type);
         }
     }
 
     PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Unknown element supertype ID %d\n", element_supertype);
+#ifdef _WIN32 
+    }
+    __except (GetExceptionCode() == EXCEPTION_STACK_OVERFLOW)
+    {
+        PRINT_ERROR_AND_QUIT("Process stack overflow at line %d\n", element_line);
+    }
+#endif
 }
 
 void interpret_ast(interpreter* interpreter, void* ast_node)
 {
-    // Create new environment, and interpret the AST
     interpret(interpreter, ast_node, &interpreter->environ_stack[0]);
     clear_environment(&interpreter->environ_stack[0]);
 }

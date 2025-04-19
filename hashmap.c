@@ -67,8 +67,8 @@ void hashmap_set(hashmap* hm, string_type key, size_t value)
     }
 
     hm_entry* bucket = &hm->bucket_elements[hash + (bucket_usage * hm->bucket_capacity)];
-    bucket[bucket_usage].key = key;
-    bucket[bucket_usage].value = value;
+    bucket->key = key;
+    bucket->value = value;
 
     hm->bucket_element_count[hash]++;
 }

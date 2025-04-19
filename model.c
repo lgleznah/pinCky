@@ -454,7 +454,7 @@ void compute_ptr_While(Element* while_elem, void* ast_base)
 /// ASSIGNMENT FUNCTIONS
 ///////////////////////////////////////////////
 
-void init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, void* ast_base, int line)
+void init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, int is_local, void* ast_base, int line)
 {
     void* lhs_ptr = OFFSET_PTR(lhs);
     void* rhs_ptr = OFFSET_PTR(rhs);
@@ -475,14 +475,14 @@ void init_Assignment(Assignment* assignment_elem, size_t lhs, size_t rhs, void* 
     assignment_elem->base.tag = SET_ELEMENT_TYPE(Statement, Assignment_stmt);
     assignment_elem->lhs = (void*)lhs;
     assignment_elem->rhs = (void*)rhs;
-
+    assignment_elem->is_local = is_local;
 }
 
 void print_Assignment(const Element* assignment_elem, int depth)
 {
     const Assignment* assignment_element = (const Assignment*)assignment_elem;
     AST_PRINT_PAD(depth);
-    printf("Assignment {\n");
+    printf((assignment_element->is_local) ? "Local assignment {\n": "Assignment {\n");
     print_element(assignment_element->lhs, depth+1);
     printf(",\n");
     print_element(assignment_element->rhs, depth+1);
@@ -525,7 +525,6 @@ void init_Print(Print* print_elem, char break_line, size_t expression, void* ast
     print_elem->base.tag = SET_ELEMENT_TYPE(Statement, Print_stmt);
     print_elem->expression = (void*)expression;
     print_elem->break_line = break_line;
-    
 }
 
 void print_Print(const Element* print_elem, int depth)
@@ -889,4 +888,46 @@ void compute_ptr_FuncCall(Element* func_call_elem, void* ast_base)
         *args_ptrs = OFFSET_PTR((size_t)*args_ptrs);
         compute_ptr(*args_ptrs++, ast_base);
     }
+}
+
+void init_Return(Return* return_elem, size_t expression, void* ast_base, int line)
+{
+    
+    void* expression_ptr = OFFSET_PTR(expression);
+    if (!CHECK_ELEMENT_SUPERTYPE(expression_ptr, Expression))
+    {
+        PRINT_SYNTAX_ERROR_AND_QUIT(line, "Contents of return statement must be an expression.");
+    }
+
+    static const ElementInterface vtable = { print_Return, element_size_Return, compute_ptr_Return };
+    static Element base = { 0, 0, &vtable};
+    memcpy(&return_elem->base, &base, sizeof(base));
+
+    return_elem->base.line = line;
+    return_elem->base.tag = SET_ELEMENT_TYPE(Statement, Return_stmt);
+    return_elem->expression = (void*)expression;
+}
+
+void print_Return(const Element* return_elem, int depth)
+{
+    
+    const Return* ret_element = (const Return*)return_elem;
+    AST_PRINT_PAD(depth);
+    printf("Return {\n");
+    print_element(ret_element->expression, depth+1);
+    printf("\n");
+    AST_PRINT_PAD(depth);
+    printf("}");
+}
+
+size_t element_size_Return(const Element* return_elem)
+{
+    return sizeof(Return);
+}
+
+void compute_ptr_Return(Element* return_elem, void* ast_base)
+{
+    Return* return_element = (Return*) return_elem;
+    return_element->expression = OFFSET_PTR((size_t)return_element->expression);
+    compute_ptr(return_element->expression, ast_base);
 }

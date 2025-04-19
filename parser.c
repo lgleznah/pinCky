@@ -166,17 +166,33 @@ size_t stmt(parser* parser)
         return func_decl(parser);
     }
 
+    if (parser_peek(parser)->type == TOK_RET)
+    {
+        return ret_stmt(parser);
+    }
+
     // If none of the above, this statement is an assignment or a function call
+    int local_assign = 0;
+    if (parser_match(parser, TOK_LOCAL))
+    {
+        local_assign = 1;
+    }
+    
     size_t lhs = expr(parser);
     if (parser_match(parser, TOK_ASSIGN))
     {
         int line = parser_previous_token(parser)->line;
         size_t rhs = expr(parser);
         size_t assignmnent = allocate_vsd_array(&parser->ast_array, sizeof(Assignment));
-        init_Assignment(OFFSET_PTR(assignmnent), lhs, rhs, parser->ast_array.data, line);
+        init_Assignment(OFFSET_PTR(assignmnent), lhs, rhs, local_assign, parser->ast_array.data, line);
         return assignmnent;
     }
 
+    if (local_assign)
+    {
+        PRINT_SYNTAX_ERROR_AND_QUIT(parser_previous_token(parser)->line, "Expected assignment after local keyword.");
+    }
+    
     FuncCall* func_call = OFFSET_PTR(lhs);
     func_call->base.tag = SET_ELEMENT_TYPE(Statement, FuncCall_expr);
     return lhs;
@@ -263,7 +279,7 @@ size_t for_stmt(parser* parser)
 size_t func_decl(parser* parser)
 {
     string_array params;
-    init_string_array(&params, 65536);
+    init_string_array(&params, 256);
     
     parser_expect(parser, TOK_FUNC);
     token* func_name = parser_expect(parser, TOK_IDENTIFIER);
@@ -271,11 +287,17 @@ size_t func_decl(parser* parser)
     parser_expect(parser, TOK_LPAREN);
 
     token* param_token;
+    int i = 0;
     while((param_token = parser_match(parser, TOK_IDENTIFIER)))
     {
+        if (i == 256)
+        {
+            PRINT_INTERPRETER_ERROR_AND_QUIT(func_name->line, "Cannot declare functions with more than 256 parameters.");
+        }
         string_type param = { .length = param_token->token.length, .string_value = param_token->token.string_value };
         insert_string_array(&params, param);
         parser_match(parser, TOK_COMMA);
+        i += 1;
     }
 
     parser_expect(parser, TOK_RPAREN);
@@ -286,6 +308,21 @@ size_t func_decl(parser* parser)
     init_FuncDecl(OFFSET_PTR(result), func_name_str, &params, statements, parser->ast_array.data, func_name->line);
 
     return result;
+}
+
+// <ret> ::= 'ret' <expr>
+size_t ret_stmt(parser* parser)
+{
+    
+    if (parser_match(parser, TOK_RET)) 
+    {
+        size_t result = expr(parser);
+        size_t ret = allocate_vsd_array(&parser->ast_array, sizeof(Return));
+        init_Return(OFFSET_PTR(ret), result, parser->ast_array.data, parser_previous_token(parser)->line);
+        return ret;
+    }
+
+    return -1;
 }
 
 // <expr> ::= <or_logical>

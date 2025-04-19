@@ -1,19 +1,34 @@
 ------------------------------------
 --- Print the factorial of a number
 ------------------------------------
-func factorial(n, x)
-    func inner(test)
-        println("Accessing inner variable " + test)
-        println("Accessing outer variable " + x)
-    end
-    
+func factorial(n)
     mul := 1
     for i := 1, n do
         mul := mul * i
     end
-    println("The factorial of " + n + " is " + mul)
-    println("There is another parameter whose value is " + x)
-    inner(42.0)
+    ret mul 
 end
 
-factorial(5, "banana")
+func fizzbuzz(n)
+    i := 1
+    while i <= n do
+        if i % 3 == 0 and i % 5 == 0 then
+            println "i = " + i + " -> " + "FizzBuzz"
+            ret "banana"
+        else
+            if i % 3 == 0 then
+                println "i = " + i + " -> " + "Fizz"
+            end
+            if i % 5 == 0 then
+                println "i = " + i + " -> " + "Buzz"
+            end
+        end
+        i := i + 1
+    end
+end
+
+x := factorial(16)
+println(x)
+
+test := fizzbuzz(30)
+println(test)

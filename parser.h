@@ -39,3 +39,4 @@ size_t if_stmt(parser* parser);
 size_t while_stmt(parser* parser);
 size_t for_stmt(parser* parser);
 size_t func_decl(parser* parser);
+size_t ret_stmt(parser* parser);

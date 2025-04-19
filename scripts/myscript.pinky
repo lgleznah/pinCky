@@ -1,23 +1,15 @@
 x := 0
-x := x + 1
 
-println("The value of the global x is: " + x)
-
-if 5~=2 then
-    y := x + 20
-    println("I have access to the local y: " + y)
-    println("I have also access to the global x: " + x)
-else
-    x := y
-    println("Error, no local variable: " + y)
+func foo(n)
+    local x := 999
+    i := 1
+    while i <= n do
+        local x := -1
+        println x
+        i := i + 1
+    end
+    println x
 end
 
-i := 1
-while i <= 10 do
-    println("i = " + i)
-    i := i + 1
-end
-
-for num := 1, 30, 2 do
-    println("num = " + num)
-end
+foo(6)
+println x

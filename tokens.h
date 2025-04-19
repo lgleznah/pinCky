@@ -58,7 +58,8 @@ typedef enum
     TOK_END,
     TOK_PRINT,
     TOK_PRINTLN,
-    TOK_RET
+    TOK_RET,
+    TOK_LOCAL
 } token_type;
 
 static const char* token_type_str[] = {
@@ -109,7 +110,8 @@ static const char* token_type_str[] = {
     "TOK_END",
     "TOK_PRINT",
     "TOK_PRINTLN",
-    "TOK_RET"
+    "TOK_RET",
+    "TOK_LOCAL"
 };
 
 static const char* token_symbols[] = {
@@ -160,7 +162,8 @@ static const char* token_symbols[] = {
     "end",
     "print",
     "println",
-    "ret"
+    "ret",
+    "local"
 };
 
 typedef struct

@@ -1,0 +1,37 @@
+angle := 0
+x := 25
+y := 60
+
+func cos(a)
+  a := 360 - (a % 360 * -1)
+  if a == 0    then ret  1.0 end
+  if a == 90   then ret  0.0 end
+  if a == 180  then ret -1.0 end
+  if a == 270  then ret  0.0 end
+  if a == 360  then ret  1.0 end
+  ret -99999
+end
+
+func sin(a)
+  a := 360 - (a % 360 * -1)
+  if a == 0    then ret  0.0 end
+  if a == 90   then ret  1.0 end
+  if a == 180  then ret  0.0 end
+  if a == 270  then ret -1.0 end
+  if a == 360  then ret  0.0 end
+  ret -99999
+end
+
+func dragon(size, level, d)
+  if level == 0 then
+    x := x - cos(angle) * size
+    y := y + sin(angle) * size
+    println("line " + x + " " + y)
+  else
+    dragon(size / 1.4142135624, level - 1, 1)
+    angle := angle - d * 90
+    dragon(size / 1.4142135624, level - 1, -1)
+  end
+end
+
+dragon(60, 12, 1)
