@@ -16,13 +16,13 @@ string_type cast_to_string(vss_array* memory, expression_result expression)
         case INT_VALUE:
             int int_length = snprintf(num_value, 256, "%d", expression.value.int_value);
             char* converted_int_string = allocate_vss_array(memory, int_length);
-            memcpy_s(converted_int_string, int_length, num_value, int_length);
+            memcpy(converted_int_string, num_value, int_length);
             return (string_type) {.length = int_length, .string_value = converted_int_string};
 
         case FLOAT_VALUE:
             int float_length = snprintf(num_value, 256, "%f", expression.value.float_value);
             char* converted_float_string = allocate_vss_array(memory, float_length);
-            memcpy_s(converted_float_string, float_length, num_value, float_length);
+            memcpy(converted_float_string, num_value, float_length);
             return (string_type) {.length = float_length, .string_value = converted_float_string};
 
         case BOOL_VALUE:

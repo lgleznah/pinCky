@@ -4,6 +4,8 @@
 
 #include "model.h"
 
+#define max(a, b)  (((a) > (b)) ? (a) : (b))
+
 MAKE_FSD_ARRAY_FUNCTIONS(token, token)
 MAKE_FSD_ARRAY_FUNCTIONS(size_t, statement)
 MAKE_FSD_ARRAY_FUNCTIONS(string_type, string)

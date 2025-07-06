@@ -202,7 +202,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 // Check number of arguments of call and declaration
                 if (func_call_stmt->num_args != func_decl->num_params)
                 {
-                    PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Function %.*s was declared with %llu parameters, but %llu arguments were given", func_decl->name.length, func_decl->name.string_value, func_decl->num_params, func_call_stmt->num_args);
+                    PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Function %.*s was declared with %lu parameters, but %lu arguments were given", func_decl->name.length, func_decl->name.string_value, func_decl->num_params, func_call_stmt->num_args);
                 }
 
                 // Evaluate arguments, and add them to the function environment 
@@ -628,7 +628,7 @@ expression_result interpret(interpreter* interpreter, void* ast_node, environmen
                 // Check number of arguments of call and declaration
                 if (func_call_stmt->num_args != func_decl->num_params)
                 {
-                    PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Function %.*s was declared with %llu parameters, but %llu arguments were given", func_decl->name.length, func_decl->name.string_value, func_decl->num_params, func_call_stmt->num_args);
+                    PRINT_INTERPRETER_ERROR_AND_QUIT(element_line, "Function %.*s was declared with %lu parameters, but %lu arguments were given", func_decl->name.length, func_decl->name.string_value, func_decl->num_params, func_call_stmt->num_args);
                 }
 
                 // Evaluate arguments, and add them to the function environment 
