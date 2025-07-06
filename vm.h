@@ -63,7 +63,7 @@
 //      0100 0011                       -> RTS              (Return from subroutine)
 
 #define STACK_SIZE 65536
-#include <cstdint>
+#include <stdint.h>
 
 typedef struct vm
 {
@@ -75,4 +75,4 @@ typedef struct vm
 void init_vm(vm* vm);
 void destroy_vm(vm* vm);
 
-void execute(vm* vm, char* program);
+void run_vm(vm* vm, char* program);

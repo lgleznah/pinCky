@@ -10,6 +10,8 @@
 #include "parser.h"
 #include "interpreter.h"
 #include "utils.h"
+#include "compiler.h"
+#include "vm.h"
 
 int main(const int argc, char* argv[])
 {
@@ -19,11 +21,11 @@ int main(const int argc, char* argv[])
         printf("Usage: pinky <filename>\n");
         return -1;
     }
-    
+
     // Read Pinky script
     char* filename = argv[1];
     FILE *fp;
-    
+
     if ((fp = fopen(filename, "r")) == NULL) {
         // Cannot open file!
         PRINT_ERROR_AND_QUIT("Cannot open file '%s': %s\n", filename, strerror(errno));
@@ -45,17 +47,30 @@ int main(const int argc, char* argv[])
     print_ast(ast);
 
     // Interpreter stage
-    interpreter interpreter;
-    init_interpreter(&interpreter);
-    PRINT_GOOD("Interpreting %s\n", filename);
+    //interpreter interpreter;
+    //init_interpreter(&interpreter);
+    //PRINT_GOOD("Interpreting %s\n", filename);
+    //printf("\n");
+    //interpret_ast(&interpreter, ast);
+
+    // Compiler stage
+    compiler compiler;
+    init_compiler(&compiler);
+    PRINT_GOOD("Compiling %s\n", filename);
+    char* bytecode = compile_compiler(&compiler, ast);
+
+    // Execution stage
+    vm vm;
+    init_vm(&vm);
+    PRINT_GOOD("Executing %s\n", filename);
     printf("\n");
-    interpret_ast(&interpreter, ast);
-    
+    run_vm(&vm, bytecode);
+
     // Close stuff
     free_lexer(&lexer);
     free_parser(&parser);
-    free_interpreter(&interpreter);
+    //free_interpreter(&interpreter);
     fclose(fp);
-    
+
     return 0;
 }

@@ -11,7 +11,7 @@ void destroy_vm(vm* vm)
     
 }
 
-void execute(vm* vm, char* program)
+void run_vm(vm* vm, char* program)
 {
     
 }

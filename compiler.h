@@ -10,4 +10,4 @@ typedef struct compiler
 void init_compiler(compiler* compiler);
 void destroy_compiler(compiler* compiler);
 
-void compile(compiler* compiler, void* ast_node);
+char* compile_compiler(compiler* compiler, void* ast_node);
