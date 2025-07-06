@@ -6,7 +6,7 @@
 void print_token(const token* token)
 {
     char buff[256];
-    memcpy_s(buff, token->token.length, token->token.string_value, token->token.length);
+    memcpy(buff, token->token.string_value, token->token.length);
     buff[token->token.length] = '\0';
     printf("(%s, %s) (line %d, column %d)\n", token_type_str[token->type], buff, token->line, token->column);
 }

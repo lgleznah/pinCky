@@ -7,6 +7,7 @@
 #include "utils.h"
 
 #define OFFSET_PTR(ptr) ((void*)(ptr + (char*)(parser->ast_array.data)))
+#define min(a, b)  (((a) > (b)) ? (b) : (a))
 
 void init_parser(parser* parser, token_array* tokens)
 {
@@ -469,7 +470,7 @@ size_t primary(parser* parser)
     {
         token* integer_token = parser_previous_token(parser);
         size_t integer = allocate_vsd_array(&parser->ast_array, sizeof(Integer));
-        memcpy_s(num_string, 127, integer_token->token.string_value, integer_token->token.length);
+        memcpy(num_string, integer_token->token.string_value, min(integer_token->token.length, 127));
         num_string[min(127, integer_token->token.length)] = '\0';
         init_Integer(OFFSET_PTR(integer), strtol(num_string, NULL, 10), integer_token->line);
         return integer;
@@ -478,7 +479,7 @@ size_t primary(parser* parser)
     {
         token* float_token = parser_previous_token(parser);
         size_t number = allocate_vsd_array(&parser->ast_array, sizeof(Float));
-        memcpy_s(num_string, 127, float_token->token.string_value, float_token->token.length);
+        memcpy(num_string, float_token->token.string_value, min(float_token->token.length, 127));
         num_string[min(127, float_token->token.length)] = '\0';
         init_Float(OFFSET_PTR(number), strtod(num_string, NULL), float_token->line);
         return number;

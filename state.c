@@ -59,8 +59,8 @@ void set_variable(environment* state, string_type name, expression_result value,
             {
                 variable_offset = allocate_vsd_array(&current->variables_memory, get_value_size(value));
                 char* variable_address = (char*)current->variables_memory.data + variable_offset;
-                memcpy_s(variable_address, sizeof(expression_result), &value, sizeof(expression_result));
-                memcpy_s(variable_address + sizeof(expression_result), value.value.string_value.length, value.value.string_value.string_value, value.value.string_value.length);
+                memcpy(variable_address, &value, sizeof(expression_result));
+                memcpy(variable_address + sizeof(expression_result), value.value.string_value.string_value, value.value.string_value.length);
                 ((expression_result*)variable_address)->value.string_value.string_value = (char*) variable_offset + sizeof(expression_result);
                 hashmap_set(&current->variables, name, variable_offset);
             }
@@ -77,10 +77,10 @@ void set_variable(environment* state, string_type name, expression_result value,
 
     variable_offset = allocate_vsd_array(&state->variables_memory, get_value_size(value));
     char* variable_address = (char*)state->variables_memory.data + variable_offset;
-    memcpy_s(variable_address, sizeof(expression_result), &value, sizeof(expression_result));
+    memcpy(variable_address, &value, sizeof(expression_result));
     if (value.type == STRING_VALUE)
     {
-        memcpy_s(variable_address + sizeof(expression_result), value.value.string_value.length, value.value.string_value.string_value, value.value.string_value.length);
+        memcpy(variable_address + sizeof(expression_result), value.value.string_value.string_value, value.value.string_value.length);
         ((expression_result*)variable_address)->value.string_value.string_value = (char*) (variable_offset + sizeof(expression_result));
     }
     

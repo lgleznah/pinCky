@@ -14,7 +14,7 @@ typedef struct
 void init_parser(parser* parser, token_array* tokens);
 void free_parser(parser* parser);
 void* parse(parser* parser);
-void print_ast(void* node);
+void print_ast(const void* node);
 
 // Functions for AST parsing
 // Expression-parsing functions

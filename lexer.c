@@ -1,5 +1,7 @@
 #include "lexer.h"
 
+#define __STDC_WANT_LIB_EXT1__ 1
+
 #include <ctype.h>
 #include <string.h>
 
@@ -241,7 +243,7 @@ void tokenize(lexer* lexer)
             // Check if the detected identifier is a keyword
             char kw_buff[256];
             int kw_found = 0;
-            memcpy_s(kw_buff, lexer->curr - lexer->start, &lexer->buffer[lexer->start], lexer->curr - lexer->start);
+            memcpy(kw_buff, &lexer->buffer[lexer->start], lexer->curr - lexer->start);
             kw_buff[lexer->curr - lexer->start] = '\0';
             for (int i = 0; i < 17; i++)
             {
