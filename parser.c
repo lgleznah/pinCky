@@ -24,6 +24,7 @@ void free_parser(parser* parser)
 void print_ast(const void* node)
 {
     print_element(node, 0);
+    printf("\n");
 }
 
 // Helper functions

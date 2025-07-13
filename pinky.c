@@ -56,8 +56,9 @@ int main(const int argc, char* argv[])
     // Compiler stage
     compiler compiler;
     init_compiler(&compiler);
-    PRINT_GOOD("Compiling %s\n", filename);
-    char* bytecode = compile_compiler(&compiler, ast);
+    PRINT_GOOD("Generating code for %s\n", filename);
+    char* bytecode = compile_code(&compiler, ast);
+    print_code(&compiler);
 
     // Execution stage
     vm vm;

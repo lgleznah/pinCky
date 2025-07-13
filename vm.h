@@ -29,8 +29,8 @@
 //      0001 0011       -> DIV      (Division)
 //      0001 0100       -> OR       (Bitwise OR)
 //      0001 0101       -> AND      (Bitwise AND)
-//      0001 0110       -> XOR      (Bitwise XOR)
-//      0001 0111       -> NEG      (Negate)
+//      0001 0110       -> NUMNEG   (Negate number)
+//      0001 0111       -> BOLNEG   (Negate boolean)
 //      0001 1000       -> EXP      (Exponentiation)
 //      0001 1001       -> MOD      (Modulo)
 //      0001 1010       -> EQ       (Compare ==)
@@ -61,6 +61,12 @@
 //      0100 0001  <16-bit number>      -> JMPZ addr        (Jump to address if top of stack is 0/false)
 //      0100 0010  <16-bit number>      -> JSR addr         (Jump to subroutine and store PC)
 //      0100 0011                       -> RTS              (Return from subroutine)
+//      0110 1001                       -> HALT             (Halts the VM, nicely)
+
+// Special instructions.
+
+//      1000 0000                       -> PRINT            (Print top of the stack)
+//      1000 0001                       -> PRINTLN          (Print top of the stack with newline)
 
 #define STACK_SIZE 65536
 #include <stdint.h>

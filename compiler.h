@@ -4,10 +4,13 @@
 
 typedef struct compiler
 {
-    char* code[MAX_CODE_SIZE];
+    unsigned char code[MAX_CODE_SIZE];
+    unsigned int code_idx;
 } compiler;
 
 void init_compiler(compiler* compiler);
 void destroy_compiler(compiler* compiler);
 
-char* compile_compiler(compiler* compiler, void* ast_node);
+void print_code(compiler* compiler);
+
+unsigned char* compile_code(compiler* compiler, void* ast_node);
