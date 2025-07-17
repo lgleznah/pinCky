@@ -1,29 +1,50 @@
 #include "compiler.h"
 
+#include "arrays.h"
 #include "model.h"
 #include "tokens.h"
 #include "utils.h"
 
-typedef union
-{
-    int num;
-    unsigned char bytes[4];
-} int_bytes;
+#include <stdalign.h>
+#include <string.h>
 
-typedef union
-{
-    double num;
-    unsigned char bytes [8];
-} double_bytes;
+#define ADD_INSTRUCTION(opcode) do { \
+    arr_offset = allocate_vsd_array(&compiler->temp_code, 1); \
+    *(char*)((char*)(compiler->temp_code.data) + arr_offset) = opcode; \
+} while(0)
+
+#define ADD_INSTRUCTION_PADDING(padding) do { \
+    arr_offset = allocate_vsd_array(&compiler->temp_code, padding); \
+    for (int _poff = 0; _poff < padding; _poff++) \
+        *(char*)((char*)(compiler->temp_code.data) + arr_offset + _poff) = 0x00; \
+} while(0)
+
+#define ADD_ALIGNED_CONSTANT(type, valaddr, size, align) do { \
+    alloc_size = size + ((compiler->temp_constants.used + align - 1) / align * align) - compiler->temp_constants.used; \
+    arr_offset = allocate_vsd_array(&compiler->temp_constants, alloc_size); \
+    aligned_target_addr = arr_offset + alloc_size - size; \
+    *((type*) (((char*) compiler->temp_constants.data) + aligned_target_addr)) = *valaddr; \
+} while(0)
+
+#define ADD_LAST_CONSTANT_OFFSET do { \
+    arr_offset = allocate_vsd_array(&compiler->temp_code, 3); \
+    *(char*)((char*)(compiler->temp_code.data) + arr_offset + 0) = aligned_target_addr          & 0xFF; \
+    *(char*)((char*)(compiler->temp_code.data) + arr_offset + 1) = (aligned_target_addr >> 8  ) & 0xFF; \
+    *(char*)((char*)(compiler->temp_code.data) + arr_offset + 2) = (aligned_target_addr >> 16 ) & 0xFF; \
+} while(0)
 
 void init_compiler(compiler* compiler) 
 {
-    compiler->code_idx = 0;
+    init_vsd_array(&compiler->program, 0);
+
+    compiler->constants_size = 0;
 }
 
 void destroy_compiler(compiler* compiler)
 {
+    free_vsd_array(&compiler->program);
 
+    compiler->constants_size = 0;
 }
 
 void compile(compiler* compiler, void* ast_node)
@@ -31,6 +52,8 @@ void compile(compiler* compiler, void* ast_node)
     int element_type = GET_ELEMENT_TYPE(ast_node);
     int element_supertype = GET_ELEMENT_SUPERTYPE(ast_node);
     int element_line = ((Element*)ast_node)->line;
+
+    size_t arr_offset, alloc_size, aligned_target_addr;
 
     if (element_supertype == Statement)
     {
@@ -49,12 +72,14 @@ void compile(compiler* compiler, void* ast_node)
 
                 if (((Print*)ast_node)->break_line)
                 {
-                    compiler->code[compiler->code_idx++] = 0x81;
+                    ADD_INSTRUCTION(0x81);
+                    ADD_INSTRUCTION_PADDING(3);
                 }
 
                 else
                 {
-                    compiler->code[compiler->code_idx++] = 0x80;
+                    ADD_INSTRUCTION(0x80);
+                    ADD_INSTRUCTION_PADDING(3);
                 }
 
                 break;
@@ -67,44 +92,37 @@ void compile(compiler* compiler, void* ast_node)
         switch (element_type)
         {
             case Integer_expr:
-                int_bytes int_val_bytes = { .num = ((Integer*)ast_node)->value };
-                compiler->code[compiler->code_idx++] = 0x01;
-                compiler->code[compiler->code_idx++] = int_val_bytes.bytes[0] & 0xFF;
-                compiler->code[compiler->code_idx++] = int_val_bytes.bytes[1] & 0xFF;
-                compiler->code[compiler->code_idx++] = int_val_bytes.bytes[2] & 0xFF;
-                compiler->code[compiler->code_idx++] = int_val_bytes.bytes[3] & 0xFF;
+                int int_val = ((Integer*)ast_node)->value;
+                ADD_INSTRUCTION(0x01);
+                ADD_ALIGNED_CONSTANT(int, &int_val, sizeof(int), alignof(int));
+                ADD_LAST_CONSTANT_OFFSET;
                 break;
 
             case Float_expr:
-                double_bytes double_val_bytes = { .num = ((Float*)ast_node)->value };
-                compiler->code[compiler->code_idx++] = 0x02;
-                compiler->code[compiler->code_idx++] = double_val_bytes.bytes[0];
-                compiler->code[compiler->code_idx++] = double_val_bytes.bytes[1];
-                compiler->code[compiler->code_idx++] = double_val_bytes.bytes[2];
-                compiler->code[compiler->code_idx++] = double_val_bytes.bytes[3];
-                compiler->code[compiler->code_idx++] = double_val_bytes.bytes[4];
-                compiler->code[compiler->code_idx++] = double_val_bytes.bytes[5];
-                compiler->code[compiler->code_idx++] = double_val_bytes.bytes[6];
-                compiler->code[compiler->code_idx++] = double_val_bytes.bytes[7];
+                double double_val = ((Float*)ast_node)->value;
+                ADD_INSTRUCTION(0x02);
+                ADD_ALIGNED_CONSTANT(double, &double_val, sizeof(double), alignof(double));
+                ADD_LAST_CONSTANT_OFFSET;
                 break;
 
 
             case Bool_expr:
-                compiler->code[compiler->code_idx++] = 0x03;
-                compiler->code[compiler->code_idx++] = ((Bool*)ast_node)->value & 0xFF;
+                char bool_val = ((Bool*)ast_node)->value;
+                ADD_INSTRUCTION(0x03);
+                ADD_ALIGNED_CONSTANT(char, &bool_val, sizeof(char), alignof(char));
+                ADD_LAST_CONSTANT_OFFSET;
                 break;
 
             case String_expr:
-                int_bytes str_len_bytes = { .num = ((String*)ast_node)->value.length };
-                char* str_pointer = ((String*)ast_node)->value.string_value;
-                compiler->code[compiler->code_idx++] = 0x04;
-                compiler->code[compiler->code_idx++] = str_len_bytes.bytes[0] & 0xFF;
-                compiler->code[compiler->code_idx++] = str_len_bytes.bytes[1] & 0xFF;
-                compiler->code[compiler->code_idx++] = str_len_bytes.bytes[2] & 0xFF;
-                compiler->code[compiler->code_idx++] = str_len_bytes.bytes[3] & 0xFF;
-                for (int i = 0; i < str_len_bytes.num; i++)
+                string_type string_val = ((String*)ast_node)->value;
+                ADD_INSTRUCTION(0x04);
+                ADD_ALIGNED_CONSTANT(int, &string_val.length, sizeof(int), alignof(int));
+                ADD_LAST_CONSTANT_OFFSET;
+
+                arr_offset = allocate_vsd_array(&compiler->temp_constants, string_val.length);
+                for (int i = 0; i < string_val.length; i++)
                 {
-                    compiler->code[compiler->code_idx++] = *str_pointer++;
+                    *(((char*)compiler->temp_constants.data) + arr_offset + i) = *(string_val.string_value + i); 
                 }
                 break;
 
@@ -115,11 +133,13 @@ void compile(compiler* compiler, void* ast_node)
                 switch (unop_op) 
                 {
                     case TOK_MINUS:
-                        compiler->code[compiler->code_idx++] = 0x16;
+                        ADD_INSTRUCTION(0x16);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_NOT:
-                        compiler->code[compiler->code_idx++] = 0x17;
+                        ADD_INSTRUCTION(0x17);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
                 }
                 break;
@@ -132,59 +152,73 @@ void compile(compiler* compiler, void* ast_node)
                 switch (binop_op)
                 {
                     case TOK_PLUS:
-                        compiler->code[compiler->code_idx++] = 0x10;
+                        ADD_INSTRUCTION(0x10);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_MINUS:
-                        compiler->code[compiler->code_idx++] = 0x11;
+                        ADD_INSTRUCTION(0x11);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_STAR:
-                        compiler->code[compiler->code_idx++] = 0x12;
+                        ADD_INSTRUCTION(0x12);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_SLASH:
-                        compiler->code[compiler->code_idx++] = 0x13;
+                        ADD_INSTRUCTION(0x13);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_OR:
-                        compiler->code[compiler->code_idx++] = 0x14;
+                        ADD_INSTRUCTION(0x14);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_AND:
-                        compiler->code[compiler->code_idx++] = 0x15;
+                        ADD_INSTRUCTION(0x15);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_CARET:
-                        compiler->code[compiler->code_idx++] = 0x18;
+                        ADD_INSTRUCTION(0x18);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_MOD:
-                        compiler->code[compiler->code_idx++] = 0x19;
+                        ADD_INSTRUCTION(0x19);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_EQEQ:
-                        compiler->code[compiler->code_idx++] = 0x1A;
+                        ADD_INSTRUCTION(0x1A);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_NE:
-                        compiler->code[compiler->code_idx++] = 0x1B;
+                        ADD_INSTRUCTION(0x1B);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_GT:
-                        compiler->code[compiler->code_idx++] = 0x1C;
+                        ADD_INSTRUCTION(0x1C);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_GE:
-                        compiler->code[compiler->code_idx++] = 0x1D;
+                        ADD_INSTRUCTION(0x1D);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_LT:
-                        compiler->code[compiler->code_idx++] = 0x1E;
+                        ADD_INSTRUCTION(0x1E);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
 
                     case TOK_LE:
-                        compiler->code[compiler->code_idx++] = 0x1F;
+                        ADD_INSTRUCTION(0x1F);
+                        ADD_INSTRUCTION_PADDING(3);
                         break;
                 }
                 
@@ -200,178 +234,352 @@ void compile(compiler* compiler, void* ast_node)
 
 void print_code(compiler* compiler)
 {
+    // Print constants section
     unsigned int idx = 0;
-    while (idx < compiler->code_idx)
+    printf("\n\nPROGRAM CONSTANTS SECTION:\n\n");
+    printf("               \e[0;33m00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\e[0;37m\n");
+    printf("               -----------------------------------------------\n");
+
+    while (idx < compiler->constants_size)
     {
-        unsigned char opcode = compiler->code[idx];
-        printf("(0x%08X)  ", idx);
-        switch (opcode)
+        if (idx % 16 == 0) 
+        {
+            if (idx != 0)
+            {
+                printf("\n");
+            }
+            printf("\e[0;33m(0x%08X)\e[0;37m | ", idx);
+        }
+        printf("\e[0;32m%02X \e[0;37m", *((unsigned char*) compiler->program.data + idx));
+        idx += 1;
+    }
+
+    printf("\n\nPROGRAM TEXT SECTION:\n\n");
+    idx = compiler->constants_size;
+    while (idx < compiler->program.used)
+    {
+        uint32_t opcode = *(uint32_t*)((char*) compiler->program.data + idx);
+        printf("\e[0;33m(0x%08X)\e[0;37m  ", idx);
+        switch (opcode & 0xFF)
         {
             case 0x00:
-                printf("                        %02X    PUSH_NONE\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "PUSH_NONE"
+                );
+                idx += 4;
                 break;
 
             case 0x01:
-                int_bytes int_val_bytes = { .bytes = {compiler->code[idx+1], compiler->code[idx+2], compiler->code[idx+3], compiler->code[idx+4]} };
-                printf("            %02X %02X %02X %02X %02X    PUSH_INTEGER (%d)\n", 
-                    opcode, 
-                    int_val_bytes.bytes[0],
-                    int_val_bytes.bytes[1],
-                    int_val_bytes.bytes[2],
-                    int_val_bytes.bytes[3],
-                    int_val_bytes.num
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s    \e[0;33m@0x%02X%02X%02X    \e[0;32m(%d)\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "PUSH_INTEGER",
+                    (opcode >> 24) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >>  8) & 0xFF,
+                    *(int*)((char*) compiler->program.data + (opcode >> 8))
                 );
-                idx += 5;
+                idx += 4;
                 break;
 
             case 0x02:
-                double_bytes double_val_bytes = { .bytes = {
-                    compiler->code[idx+1], compiler->code[idx+2], compiler->code[idx+3], compiler->code[idx+4],
-                    compiler->code[idx+5], compiler->code[idx+6], compiler->code[idx+7], compiler->code[idx+8]
-                } };
-                printf("%02X %02X %02X %02X %02X %02X %02X %02X %02X    PUSH_FLOAT (%f)\n", 
-                    opcode, 
-                    double_val_bytes.bytes[0],
-                    double_val_bytes.bytes[1],
-                    double_val_bytes.bytes[2],
-                    double_val_bytes.bytes[3],
-                    double_val_bytes.bytes[4],
-                    double_val_bytes.bytes[5],
-                    double_val_bytes.bytes[6],
-                    double_val_bytes.bytes[7],
-                    double_val_bytes.num
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s    \e[0;33m@0x%02X%02X%02X    \e[0;32m(%f)\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "PUSH_FLOAT",
+                    (opcode >> 24) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >>  8) & 0xFF,
+                    *(double*)((char*) compiler->program.data + (opcode >> 8))
                 );
-                idx += 9;
+                idx += 4;
                 break;
 
             case 0x03:
-                printf("                     %02X %02X    PUSH_BOOL (%s)\n", 
-                    opcode, 
-                    compiler->code[idx+1],
-                    (compiler->code[idx+1]) ? "True" : "False"
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s    \e[0;33m@0x%02X%02X%02X    \e[0;32m(%s)\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "PUSH_BOOL",
+                    (opcode >> 24) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >>  8) & 0xFF,
+                    ((char)*((char*) compiler->program.data + (opcode >> 8))) ? "true" : "false"
                 );
-                idx += 2;
+                idx += 4;
                 break;
 
             case 0x04:
-                int_bytes str_len_bytes = { .bytes = {compiler->code[idx+1], compiler->code[idx+2], compiler->code[idx+3], compiler->code[idx+4]} };
-                printf("                     %02X ..    PUSH_STRING (%d bytes of string)\n",
-                    opcode,
-                    str_len_bytes.num
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s    \e[0;33m@0x%02X%02X%02X    \e[0;32m(%d bytes of string)\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "PUSH_STRING",
+                    (opcode >> 24) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >>  8) & 0xFF,
+                    *(int*)((char*) compiler->program.data + (opcode >> 8))
                 );
-                idx += 5 + str_len_bytes.num;
+                idx += 4;
                 break;
 
             case 0x10:
-                printf("                        %02X    ADD\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "ADD"
+                );
+                idx += 4;
                 break;
 
 
             case 0x11:
-                printf("                        %02X    SUB\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "SUB"
+                );
+                idx += 4;
                 break;
 
 
             case 0x12:
-                printf("                        %02X    MUL\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "MUL"
+                );
+                idx += 4;
                 break;
 
 
             case 0x13:
-                printf("                        %02X    DIV\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "DIV"
+                );
+                idx += 4;
                 break;
 
 
             case 0x14:
-                printf("                        %02X    OR\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "OR"
+                );
+                idx += 4;
                 break;
 
 
             case 0x15:
-                printf("                        %02X    AND\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "AND"
+                );
+                idx += 4;
                 break;
 
 
             case 0x16:
-                printf("                        %02X    NUMNEG\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "NUMNEG"
+                );
+                idx += 4;
                 break;
 
 
             case 0x17:
-                printf("                        %02X    BOLNEG\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "BOOLNEG"
+                );
+                idx += 4;
                 break;
 
 
             case 0x18:
-                printf("                        %02X    EXP\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "EXP"
+                );
+                idx += 4;
                 break;
 
 
             case 0x19:
-                printf("                        %02X    MOD\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "MOD"
+                );
+                idx += 4;
                 break;
 
 
             case 0x1A:
-                printf("                        %02X    EQ\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "EQ"
+                );
+                idx += 4;
                 break;
 
 
             case 0x1B:
-                printf("                        %02X    NE\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "NE"
+                );
+                idx += 4;
                 break;
 
 
             case 0x1C:
-                printf("                        %02X    GT\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "GT"
+                );
+                idx += 4;
                 break;
 
 
             case 0x1D:
-                printf("                        %02X    GE\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "GE"
+                );
+                idx += 4;
                 break;
 
 
             case 0x1E:
-                printf("                        %02X    LT\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "LT"
+                );
+                idx += 4;
                 break;
 
 
             case 0x1F:
-                printf("                        %02X    LE\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "LE"
+                );
+                idx += 4;
                 break;
 
             case 0x80:
-                printf("                        %02X    PRINT\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "PRINT"
+                );
+                idx += 4;
                 break;
 
 
             case 0x81:
-                printf("                        %02X    PRINTLN\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "PRINTLN"
+                );
+                idx += 4;
                 break;
 
             case 0x69:
-                printf("                        %02X    HALT\n", opcode);
-                idx += 1;
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "HALT"
+                );
+                idx += 4;
                 break;
 
             default:
@@ -382,7 +590,24 @@ void print_code(compiler* compiler)
 
 unsigned char* compile_code(compiler* compiler, void* ast_node)
 {
+    size_t arr_offset;
+
+    init_vsd_array(&compiler->temp_constants, 0);
+    init_vsd_array(&compiler->temp_code, 0);
+
     compile(compiler, ast_node);
-    compiler->code[compiler->code_idx++] = 0x69;
-    return compiler->code;
+    ADD_INSTRUCTION(0x69);
+    size_t alloc_size = ((compiler->temp_constants.used + 4 - 1) / 4 * 4) - compiler->temp_constants.used; \
+    allocate_vsd_array(&compiler->temp_constants, alloc_size); \
+
+    allocate_vsd_array(&compiler->program, compiler->temp_constants.used + compiler->temp_code.used);
+    compiler->program.used = compiler->temp_constants.used + compiler->temp_code.used;
+    memcpy(compiler->program.data, compiler->temp_constants.data, compiler->temp_constants.used);
+    memcpy(compiler->program.data + compiler->temp_constants.used, compiler->temp_code.data, compiler->temp_code.used);
+    compiler->constants_size = compiler->temp_constants.used;
+
+    free_vsd_array(&compiler->temp_constants);
+    free_vsd_array(&compiler->temp_code);
+
+    return compiler->program.data;
 }

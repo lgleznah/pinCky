@@ -1,11 +1,14 @@
 #pragma once
 
-#define MAX_CODE_SIZE 65536
+#include "arrays.h"
 
 typedef struct compiler
 {
-    unsigned char code[MAX_CODE_SIZE];
-    unsigned int code_idx;
+    vsd_array temp_constants;
+    vsd_array temp_code;
+    vsd_array program;
+
+    size_t constants_size;
 } compiler;
 
 void init_compiler(compiler* compiler);

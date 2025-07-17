@@ -7,14 +7,14 @@
 // the 4th LSB indicates whether it is a push or a pop, and the three LSBs indicate
 // the type of value that will be pushed.
 
-//      0000 0xxx       -> PUSH instruction
-//      0000 1xxx       ->  POP instruction
+//      0000 0xxx (3 byte address)      -> PUSH instruction
+//      0000 1xxx (3 byte address)      ->  POP instruction
 
-//      0000 x000       -> NPUSH/NPOP (POP/PUSH None value)
-//      0000 x001       -> IPUSH/IPOP (POP/PUSH Integer)
-//      0000 x010       -> FPUSH/FPOP (POP/PUSH Float)
-//      0000 x011       -> BPUSH/BPOP (POP/PUSH Boolean)
-//      0000 x100       -> SPUSH/SPOP (POP/PUSH String)
+//      0000 x000                       -> NPUSH/NPOP (POP/PUSH None value)
+//      0000 x001 (3 byte address)      -> IPUSH/IPOP (POP/PUSH Integer)
+//      0000 x010 (3 byte address)      -> FPUSH/FPOP (POP/PUSH Float)
+//      0000 x011 (3 byte address)      -> BPUSH/BPOP (POP/PUSH Boolean)
+//      0000 x100 (3 byte address)      -> SPUSH/SPOP (POP/PUSH String)
 
 // Stack values are tagged with a one-byte tag, the same as the one specified in the
 // result_type enum. The stack grows from the smallest address of an array towards
