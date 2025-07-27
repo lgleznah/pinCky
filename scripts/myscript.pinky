@@ -2,3 +2,4 @@ println 2 + 3 * 4.45 - 2.8 - -1
 println true
 println true and false
 println "banana" + "ananas"
+println ~true

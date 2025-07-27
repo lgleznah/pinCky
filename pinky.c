@@ -57,7 +57,7 @@ int main(const int argc, char* argv[])
     compiler compiler;
     init_compiler(&compiler);
     PRINT_GOOD("Generating code for %s\n", filename);
-    char* bytecode = compile_code(&compiler, ast);
+    unsigned char* bytecode = compile_code(&compiler, ast);
     print_code(&compiler);
 
     // Execution stage

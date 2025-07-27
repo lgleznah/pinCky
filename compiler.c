@@ -240,7 +240,7 @@ void print_code(compiler* compiler)
     printf("               \e[0;33m00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\e[0;37m\n");
     printf("               -----------------------------------------------\n");
 
-    while (idx < compiler->constants_size)
+    while (idx < compiler->constants_size + 8)
     {
         if (idx % 16 == 0) 
         {
@@ -255,7 +255,7 @@ void print_code(compiler* compiler)
     }
 
     printf("\n\nPROGRAM TEXT SECTION:\n\n");
-    idx = compiler->constants_size;
+    idx = compiler->constants_size + 8;
     while (idx < compiler->program.used)
     {
         uint32_t opcode = *(uint32_t*)((char*) compiler->program.data + idx);
@@ -597,14 +597,17 @@ unsigned char* compile_code(compiler* compiler, void* ast_node)
 
     compile(compiler, ast_node);
     ADD_INSTRUCTION(0x69);
-    size_t alloc_size = ((compiler->temp_constants.used + 4 - 1) / 4 * 4) - compiler->temp_constants.used; \
-    allocate_vsd_array(&compiler->temp_constants, alloc_size); \
+    size_t alloc_size = ((compiler->temp_constants.used + 4 - 1) / 4 * 4) - compiler->temp_constants.used;
+    allocate_vsd_array(&compiler->temp_constants, alloc_size);
 
-    allocate_vsd_array(&compiler->program, compiler->temp_constants.used + compiler->temp_code.used);
-    compiler->program.used = compiler->temp_constants.used + compiler->temp_code.used;
-    memcpy(compiler->program.data, compiler->temp_constants.data, compiler->temp_constants.used);
-    memcpy(compiler->program.data + compiler->temp_constants.used, compiler->temp_code.data, compiler->temp_code.used);
+    // Even though the constants_size value is only 4 bytes, 8 are allocated in order not to break the
+    // alignment of any of the other values (as doubles, the most strictly aligned, have an alignment of 8)
+    allocate_vsd_array(&compiler->program, 8 + compiler->temp_constants.used + compiler->temp_code.used);
     compiler->constants_size = compiler->temp_constants.used;
+    *(uint32_t*)(compiler->program.data) = compiler->constants_size;
+    compiler->program.used = 8 + compiler->temp_constants.used + compiler->temp_code.used;
+    memcpy(compiler->program.data + 8, compiler->temp_constants.data, compiler->temp_constants.used);
+    memcpy(compiler->program.data + compiler->temp_constants.used + 8, compiler->temp_code.data, compiler->temp_code.used);
 
     free_vsd_array(&compiler->temp_constants);
     free_vsd_array(&compiler->temp_code);

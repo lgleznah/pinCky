@@ -2,13 +2,15 @@
 
 #include "arrays.h"
 
+#include <stdint.h>
+
 typedef struct compiler
 {
     vsd_array temp_constants;
     vsd_array temp_code;
     vsd_array program;
 
-    size_t constants_size;
+    uint32_t constants_size;
 } compiler;
 
 void init_compiler(compiler* compiler);

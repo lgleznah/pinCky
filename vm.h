@@ -1,5 +1,7 @@
 #pragma once
 
+#include "string_type.h"
+
 // The VM consists of a single stack.
 
 // Opcodes are 1 byte each (potentially followed by a certain value).
@@ -71,6 +73,56 @@
 #define STACK_SIZE 65536
 #include <stdint.h>
 
+#define OPCODE_NPUSH   0x00
+#define OPCODE_IPUSH   0x01
+#define OPCODE_FPUSH   0x02
+#define OPCODE_BPUSH   0x03
+#define OPCODE_SPUSH   0x04
+#define OPCODE_ADD     0x10
+#define OPCODE_SUB     0x11
+#define OPCODE_MUL     0x12
+#define OPCODE_DIV     0x13
+#define OPCODE_OR      0x14
+#define OPCODE_AND     0x15
+#define OPCODE_NUMNEG  0x16
+#define OPCODE_BOOLNEG 0x17
+#define OPCODE_EXP     0x18
+#define OPCODE_MOD     0x19
+#define OPCODE_EQ      0x1A
+#define OPCODE_NE      0x1B
+#define OPCODE_GT      0x1C
+#define OPCODE_GE      0x1D
+#define OPCODE_LT      0x1E
+#define OPCODE_LE      0x1F
+#define OPCODE_PRINT   0x80
+#define OPCODE_PRINTLN 0x81
+#define OPCODE_HALT    0x69
+
+typedef enum
+{
+    NONE,
+    INT_VALUE,
+    FLOAT_VALUE,
+    BOOL_VALUE,
+    STRING_VALUE,
+} result_type;
+
+typedef int integer_type;
+typedef double float_type;
+typedef int boolean_type;
+
+typedef struct
+{
+    result_type type;
+    union
+    {
+        integer_type int_value;
+        float_type float_value;
+        boolean_type bool_value;
+        string_type string_value;
+    } value;
+} expression_result;
+
 typedef struct vm
 {
     char stack[STACK_SIZE];
@@ -81,4 +133,4 @@ typedef struct vm
 void init_vm(vm* vm);
 void destroy_vm(vm* vm);
 
-void run_vm(vm* vm, char* program);
+void run_vm(vm* vm, unsigned char* program);
