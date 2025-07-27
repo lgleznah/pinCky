@@ -1,6 +1,6 @@
 #pragma once
 
-#include "interpreter_commons.h"
+#include "compiler_commons.h"
 
 
 static expression_result true_expression = {.type = BOOL_VALUE, .value.bool_value = 1};

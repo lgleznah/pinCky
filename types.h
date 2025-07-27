@@ -1,6 +1,6 @@
 #pragma once
 
-#include "interpreter_commons.h"
+#include "compiler_commons.h"
 
 static char* type_names[] = {"none", "int", "float", "bool", "string"};
 

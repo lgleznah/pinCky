@@ -1,6 +1,6 @@
 #pragma once
 
-#include "interpreter_commons.h"
+#include "compiler_commons.h"
 
 void init_environment(environment* e, environment* parent);
 void clear_environment(environment* e);

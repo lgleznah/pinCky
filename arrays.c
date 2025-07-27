@@ -78,7 +78,7 @@ void* allocate_vss_array(vss_array* memory, size_t bytes)
     // Realloc if new size exceeds current limit
     if (memory->used + bytes > memory->size)
     {
-        printf("Max parser memory exceeded!\n");
+        printf("Max VSS memory exceeded!\n");
         exit(1);
     }
 

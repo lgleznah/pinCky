@@ -1,6 +1,6 @@
 #pragma once
 
-#include "string_type.h"
+#include "compiler_commons.h"
 
 // The VM consists of a single stack.
 
@@ -70,6 +70,53 @@
 //      1000 0000                       -> PRINT            (Print top of the stack)
 //      1000 0001                       -> PRINTLN          (Print top of the stack with newline)
 
+
+// For binops and unops, the types of the operands are used as indices to a jump table
+// which determines what function to employ for executing the operation, according to the following tables:
+//
+//    +    |  none  | integer | float |  bool  | string | 
+// --------+--------+---------+-------+--------+--------+
+//    none |   ERR  |   ERR   |  ERR  |  ERR   |  SADD  |          ERR: error (unsupported)
+// --------+--------+---------+-------+--------+--------+          IADD: integer addition
+// integer |   ERR  |   IADD  |  FADD |  ERR   |  SADD  |          FADD: float addition
+// --------+--------+---------+-------+--------+--------+          SADD: string addition
+//   float |   ERR  |   FADD  |  FADD |  ERR   |  SADD  |
+// --------+--------+---------+-------+--------+--------+
+//    bool |   ERR  |   ERR   |  ERR  |  ERR   |  SADD  |
+// --------+--------+---------+-------+--------+--------+
+//  string |  SADD  |   SADD  |  SADD |  SADD  |  SADD  |
+// --------+--------+---------+-------+--------+--------+
+// 
+//
+//  -*/%^  |  none  | integer | float |  bool  | string | 
+// --------+--------+---------+-------+--------+--------+
+//    none |   ERR  |   ERR   |  ERR  |  ERR   |   ERR  |          ERR: error (unsupported)
+// --------+--------+---------+-------+--------+--------+          I*: integer operation
+// integer |   ERR  |   I*    |  F*   |  ERR   |   ERR  |          F*: float operation
+// --------+--------+---------+-------+--------+--------+          
+//   float |   ERR  |   F*    |  F*   |  ERR   |   ERR  |          (*) can be any of
+// --------+--------+---------+-------+--------+--------+              SUB, MUL, DIV, MOD, EXP
+//    bool |   ERR  |   ERR   |  ERR  |  ERR   |   ERR  |
+// --------+--------+---------+-------+--------+--------+
+//  string |   ERR  |   ERR   |  ERR  |  ERR   |   ERR  |
+// --------+--------+---------+-------+--------+--------+
+//
+//
+//   comp* |  none  | integer | float |  bool  | string | 
+// --------+--------+---------+-------+--------+--------+
+//    none |   ERR  |   ERR   |  ERR  |  ERR   |   ERR  |          ERR: error (unsupported)
+// --------+--------+---------+-------+--------+--------+          I*: integer comparison
+// integer |   ERR  |   I*    |  F*   |  I*    |   ERR  |          F*: float comparison
+// --------+--------+---------+-------+--------+--------+          S*: string comparison
+//   float |   ERR  |   F*    |  F*   |  F*    |   ERR  |
+// --------+--------+---------+-------+--------+--------+          (*) can be any of
+//    bool |   ERR  |   I*    |  F*   |  I*    |   ERR  |              EQ, NE, GT, LE, LT, LE
+// --------+--------+---------+-------+--------+--------+
+//  string |   ERR  |   ERR   |  ERR  |  ERR   |   S*   |          For AND/OR, the operand is cast to a bool.
+// --------+--------+---------+-------+--------+--------+          All types have a defined bool casting.
+//
+// 
+//
 #define STACK_SIZE 65536
 #include <stdint.h>
 
@@ -98,34 +145,10 @@
 #define OPCODE_PRINTLN 0x81
 #define OPCODE_HALT    0x69
 
-typedef enum
-{
-    NONE,
-    INT_VALUE,
-    FLOAT_VALUE,
-    BOOL_VALUE,
-    STRING_VALUE,
-} result_type;
-
-typedef int integer_type;
-typedef double float_type;
-typedef int boolean_type;
-
-typedef struct
-{
-    result_type type;
-    union
-    {
-        integer_type int_value;
-        float_type float_value;
-        boolean_type bool_value;
-        string_type string_value;
-    } value;
-} expression_result;
-
 typedef struct vm
 {
     char stack[STACK_SIZE];
+    vss_array temp_memory;
     uint32_t sp;
     uint32_t pc;
 } vm;

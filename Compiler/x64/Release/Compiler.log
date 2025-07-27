@@ -1,0 +1,13 @@
+﻿  arrays.c
+  model.c
+  parser.c
+  pinky.c
+  tokens.c
+tokens.obj : warning LNK4075: se omite '/EDITANDCONTINUE' debido a la especificación '/OPT:ICF'
+LINK : warning LNK4098: la biblioteca predeterminada'MSVCRTD' entra en conflicto con otras bibliotecas; use la biblioteca /NODEFAULTLIB:biblioteca
+  Generando código
+  0 of 105 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
+  Generación de código finalizada
+  Compiler.vcxproj -> C:\Users\Luis.GNaharro\Dropbox\Archivos_comunes\Proyectos\Compiler\x64\Release\pinky.exe

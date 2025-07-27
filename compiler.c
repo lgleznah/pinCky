@@ -285,7 +285,7 @@ void print_code(compiler* compiler)
                     (opcode >> 24) & 0xFF, 
                     (opcode >> 16) & 0xFF,
                     (opcode >>  8) & 0xFF,
-                    *(int*)((char*) compiler->program.data + (opcode >> 8))
+                    *(int*)((char*) compiler->program.data + 8 + (opcode >> 8))
                 );
                 idx += 4;
                 break;
@@ -301,7 +301,7 @@ void print_code(compiler* compiler)
                     (opcode >> 24) & 0xFF, 
                     (opcode >> 16) & 0xFF,
                     (opcode >>  8) & 0xFF,
-                    *(double*)((char*) compiler->program.data + (opcode >> 8))
+                    *(double*)((char*) compiler->program.data + 8 + (opcode >> 8))
                 );
                 idx += 4;
                 break;
@@ -317,7 +317,7 @@ void print_code(compiler* compiler)
                     (opcode >> 24) & 0xFF, 
                     (opcode >> 16) & 0xFF,
                     (opcode >>  8) & 0xFF,
-                    ((char)*((char*) compiler->program.data + (opcode >> 8))) ? "true" : "false"
+                    ((char)*((char*) compiler->program.data + 8 + (opcode >> 8))) ? "true" : "false"
                 );
                 idx += 4;
                 break;
@@ -333,7 +333,7 @@ void print_code(compiler* compiler)
                     (opcode >> 24) & 0xFF, 
                     (opcode >> 16) & 0xFF,
                     (opcode >>  8) & 0xFF,
-                    *(int*)((char*) compiler->program.data + (opcode >> 8))
+                    *(int*)((char*) compiler->program.data + 8 + (opcode >> 8))
                 );
                 idx += 4;
                 break;
