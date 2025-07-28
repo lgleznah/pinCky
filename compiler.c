@@ -126,6 +126,10 @@ void compile(compiler* compiler, void* ast_node)
                 }
                 break;
 
+            case Grouping_expr:
+                compile(compiler, ((Grouping*)ast_node)->expression);
+                break;
+
             case UnOp_expr:
                 compile(compiler, ((UnOp*)ast_node)->operand);
                 token_type unop_op = ((UnOp*)ast_node)->op;

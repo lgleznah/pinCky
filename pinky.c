@@ -67,6 +67,12 @@ int main(const int argc, char* argv[])
     printf("\n");
     run_vm(&vm, bytecode);
 
+    for (int i = 0; i < vm.sp; i++) 
+    {
+        if (i % 24 == 0) printf("\n");
+        printf("%02X ", (unsigned char)vm.stack[i]);
+    }
+
     // Close stuff
     free_lexer(&lexer);
     free_parser(&parser);
