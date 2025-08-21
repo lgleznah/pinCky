@@ -33,9 +33,23 @@
     *(char*)((char*)(compiler->temp_code.data) + arr_offset + 2) = (aligned_target_addr >> 16 ) & 0xFF; \
 } while(0)
 
+#define ADD_LABEL_ID(label) do { \
+    arr_offset = allocate_vsd_array(&compiler->temp_code, 3); \
+    *(char*)((char*)(compiler->temp_code.data) + arr_offset + 0) = label                        & 0xFF; \
+    *(char*)((char*)(compiler->temp_code.data) + arr_offset + 1) = (label >> 8  )               & 0xFF; \
+    *(char*)((char*)(compiler->temp_code.data) + arr_offset + 2) = (label >> 16 )               & 0xFF; \
+} while(0)
+
+#define GENERATE_LABEL_ID(name) \
+    uint32_t name = compiler->label_addrs.used; \
+    insert_label_addr_array(&compiler->label_addrs, -1)
+
+#define SET_LABEL_ADDR(label) compiler->label_addrs.data[label] = compiler->temp_code.used
+
 void init_compiler(compiler* compiler) 
 {
     init_vsd_array(&compiler->program, 0);
+    init_label_addr_array(&compiler->label_addrs, 1024);
 
     compiler->constants_size = 0;
 }
@@ -43,6 +57,7 @@ void init_compiler(compiler* compiler)
 void destroy_compiler(compiler* compiler)
 {
     free_vsd_array(&compiler->program);
+    free_label_addr_array(&compiler->label_addrs);
 
     compiler->constants_size = 0;
 }
@@ -84,6 +99,26 @@ void compile(compiler* compiler, void* ast_node)
 
                 break;
 
+            case If_stmt:
+                If* if_stmt = ((If*)ast_node);
+
+                compile(compiler, if_stmt->condition);
+                GENERATE_LABEL_ID(else_label);
+                GENERATE_LABEL_ID(exit_label); 
+                ADD_INSTRUCTION(0x41); 
+                ADD_LABEL_ID(else_label);
+
+                compile(compiler, if_stmt->then_branch);
+                ADD_INSTRUCTION(0x40);
+                ADD_LABEL_ID(exit_label); 
+
+                SET_LABEL_ADDR(else_label);
+                if (if_stmt->else_branch != NULL)
+                {
+                    compile(compiler, if_stmt->else_branch);
+                }
+
+                SET_LABEL_ADDR(exit_label);
         }
     }
 

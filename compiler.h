@@ -10,6 +10,8 @@ typedef struct compiler
     vsd_array temp_code;
     vsd_array program;
 
+    label_addr_array label_addrs;
+
     uint32_t constants_size;
 } compiler;
 
