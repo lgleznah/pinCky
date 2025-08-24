@@ -147,6 +147,15 @@
 #define OPCODE_JMPZ    0x41
 #define OPCODE_JMP     0x40
 
+typedef struct globals
+{
+    hashmap variables;
+    vsd_array variables_memory;
+    hashmap functions;
+    environment* parent;
+    environment_type type;
+};
+
 typedef struct vm
 {
     char stack[STACK_SIZE];
