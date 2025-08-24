@@ -52,8 +52,8 @@
 
 // Variable load/store functions
 
-//      0010 0000  <16-bit number>      -> LOAD n           (Push globals[n] to the stack)
-//      0010 0001  <16-bit number>      -> STORE n          (Pop the stack into globals[n])
+//      0010 0000  <16-bit number>      -> LOAD_GLOBAL n    (Push globals[n] to the stack)
+//      0010 0001  <16-bit number>      -> STORE_GLOBAL n   (Pop the stack into globals[n])
 //      0011 0000  <16-bit number>      -> LOAD_LOCAL n     (Push locals[n] to the stack)
 //      0011 0001  <16-bit number>      -> STORE_LOCAL n    (Pop the stack into locals[n])
 
@@ -144,6 +144,8 @@
 #define OPCODE_PRINT   0x80
 #define OPCODE_PRINTLN 0x81
 #define OPCODE_HALT    0x69
+#define OPCODE_JMPZ    0x41
+#define OPCODE_JMP     0x40
 
 typedef struct vm
 {

@@ -2,6 +2,7 @@
 
 #include "compiler_commons.h"
 #include "types.h"
+#include "utils.h"
 #include "vm_ops.h"
 
 #include <stdio.h>
@@ -217,7 +218,6 @@ void run_vm(vm* vm, unsigned char* program)
                 vm->sp += sizeof(expression_result);
                 break;
 
-
             case OPCODE_PRINT:
                 rhs = pop(vm);
                 print_str = cast_to_string(&vm->temp_memory, *rhs);
@@ -228,6 +228,27 @@ void run_vm(vm* vm, unsigned char* program)
                 rhs = pop(vm);
                 print_str = cast_to_string(&vm->temp_memory, *rhs);
                 printf("%.*s\n", print_str.length, print_str.string_value);
+                break;
+
+            case OPCODE_JMPZ:
+                rhs = pop(vm);
+                vm->sp += sizeof(expression_result);
+                if (rhs->type != BOOL_VALUE)
+                {
+                    PRINT_ERROR_AND_QUIT("Condition value is not boolean");
+                }
+                
+                if (!rhs->value.bool_value)
+                {
+                    uint32_t jump_address = instr >> 8;
+                    vm->pc = jump_address;
+                }
+
+                break;
+
+            case OPCODE_JMP:
+                uint32_t jump_address = instr >> 8;
+                vm->pc = jump_address;
                 break;
         }
     }

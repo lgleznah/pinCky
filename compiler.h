@@ -1,6 +1,7 @@
 #pragma once
 
 #include "arrays.h"
+#include "hashmap.h"
 
 #include <stdint.h>
 
@@ -11,6 +12,9 @@ typedef struct compiler
     vsd_array program;
 
     label_addr_array label_addrs;
+
+    hashmap symbols;
+    uint32_t num_symbols;
 
     uint32_t constants_size;
 } compiler;

@@ -1,6 +1,7 @@
 #include "compiler.h"
 
 #include "arrays.h"
+#include "hashmap.h"
 #include "model.h"
 #include "tokens.h"
 #include "utils.h"
@@ -50,6 +51,7 @@ void init_compiler(compiler* compiler)
 {
     init_vsd_array(&compiler->program, 0);
     init_label_addr_array(&compiler->label_addrs, 1024);
+    init_hashmap(&compiler->symbols, 32, 32);
 
     compiler->constants_size = 0;
 }
@@ -58,6 +60,7 @@ void destroy_compiler(compiler* compiler)
 {
     free_vsd_array(&compiler->program);
     free_label_addr_array(&compiler->label_addrs);
+    free_hashmap(&compiler->symbols);
 
     compiler->constants_size = 0;
 }
@@ -119,6 +122,20 @@ void compile(compiler* compiler, void* ast_node)
                 }
 
                 SET_LABEL_ADDR(exit_label);
+
+            case Assignment_stmt:
+                Assignment* assign_stmt = ((Assignment*)ast_node); 
+                Identifier* lhs_identifier = assign_stmt->lhs;
+
+                uint32_t symbol_id = 0;
+                if (hashmap_get(&compiler->symbols, &lhs_identifier->name, &symbol_id) == -1)
+                {
+                    hashmap_set(&compiler->symbols, lhs_identifier->name, compiler->num_symbols);
+                    symbol_id = compiler->num_symbols++;
+                }
+
+                ADD_INSTRUCTION(0x21);
+                ADD_LABEL_ID(symbol_id); 
         }
     }
 
@@ -160,6 +177,9 @@ void compile(compiler* compiler, void* ast_node)
                     *(((char*)compiler->temp_constants.data) + arr_offset + i) = *(string_val.string_value + i); 
                 }
                 break;
+
+            case Identifier_expr:
+                Identifier* identifier_expr = ((Identifier*)ast_node);
 
             case Grouping_expr:
                 compile(compiler, ((Grouping*)ast_node)->expression);
@@ -378,7 +398,7 @@ void print_code(compiler* compiler)
                 break;
 
             case 0x10:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -391,7 +411,7 @@ void print_code(compiler* compiler)
 
 
             case 0x11:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -404,7 +424,7 @@ void print_code(compiler* compiler)
 
 
             case 0x12:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -417,7 +437,7 @@ void print_code(compiler* compiler)
 
 
             case 0x13:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -430,7 +450,7 @@ void print_code(compiler* compiler)
 
 
             case 0x14:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -443,7 +463,7 @@ void print_code(compiler* compiler)
 
 
             case 0x15:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -456,7 +476,7 @@ void print_code(compiler* compiler)
 
 
             case 0x16:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -469,7 +489,7 @@ void print_code(compiler* compiler)
 
 
             case 0x17:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -482,7 +502,7 @@ void print_code(compiler* compiler)
 
 
             case 0x18:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -495,7 +515,7 @@ void print_code(compiler* compiler)
 
 
             case 0x19:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -508,7 +528,7 @@ void print_code(compiler* compiler)
 
 
             case 0x1A:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -521,7 +541,7 @@ void print_code(compiler* compiler)
 
 
             case 0x1B:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -534,7 +554,7 @@ void print_code(compiler* compiler)
 
 
             case 0x1C:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -547,7 +567,7 @@ void print_code(compiler* compiler)
 
 
             case 0x1D:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -560,7 +580,7 @@ void print_code(compiler* compiler)
 
 
             case 0x1E:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -573,7 +593,7 @@ void print_code(compiler* compiler)
 
 
             case 0x1F:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -585,7 +605,7 @@ void print_code(compiler* compiler)
                 break;
 
             case 0x80:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;37m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -598,7 +618,7 @@ void print_code(compiler* compiler)
 
 
             case 0x81:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;37m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -610,7 +630,7 @@ void print_code(compiler* compiler)
                 break;
 
             case 0x69:
-                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                printf("            \e[0;31m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
@@ -621,9 +641,57 @@ void print_code(compiler* compiler)
                 idx += 4;
                 break;
 
+            case 0x41:
+                printf("            \e[0;35m%02X %02X %02X %02X    %*s    \e[0;33m@0x%02X%02X%02X    \e[0;37m\n",
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "JMPZ",
+                    (opcode >> 24) & 0xFF,
+                    (opcode >> 16) & 0xFF,
+                    (opcode >>  8) & 0xFF
+                );
+                idx += 4;
+                break;
+
+            case 0x40:
+                printf("            \e[0;35m%02X %02X %02X %02X    %*s    \e[0;33m@0x%02X%02X%02X    \e[0;37m\n",
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "JMP",
+                    (opcode >> 24) & 0xFF,
+                    (opcode >> 16) & 0xFF,
+                    (opcode >>  8) & 0xFF
+                );
+                idx += 4;
+                break;
+
             default:
                 PRINT_ERROR_AND_QUIT("Unrecognized opcode %02X", opcode);
         }
+    }
+}
+
+void solve_label_addrs(compiler* compiler)
+{
+    uint32_t idx = compiler->constants_size + 8;
+    while (idx < compiler->program.used)
+    {
+        uint32_t instruction = *(uint32_t*)((char*) compiler->program.data + idx);
+        uint32_t opcode = instruction & 0xFF;
+
+        if (opcode == 0x40 || opcode == 0x41)
+        {
+            uint32_t target_addr = compiler->label_addrs.data[instruction >> 8] + 8 + compiler->temp_constants.used;
+            *(uint32_t*)((char*) compiler->program.data + idx) = opcode | (target_addr << 8);
+        }
+
+        idx += 4;
     }
 }
 
@@ -647,6 +715,9 @@ unsigned char* compile_code(compiler* compiler, void* ast_node)
     compiler->program.used = 8 + compiler->temp_constants.used + compiler->temp_code.used;
     memcpy(compiler->program.data + 8, compiler->temp_constants.data, compiler->temp_constants.used);
     memcpy(compiler->program.data + compiler->temp_constants.used + 8, compiler->temp_code.data, compiler->temp_code.used);
+
+    // Replace previously generated labels with their definitive values
+    solve_label_addrs(compiler);
 
     free_vsd_array(&compiler->temp_constants);
     free_vsd_array(&compiler->temp_code);
