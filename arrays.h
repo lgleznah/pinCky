@@ -12,7 +12,11 @@ MAKE_FSD_ARRAY_HEADERS(size_t, statement)
 MAKE_FSD_ARRAY_HEADERS(string_type, string)
 MAKE_FSD_ARRAY_HEADERS(size_t, expression)
 MAKE_FSD_ARRAY_HEADERS(uint32_t, label_addr)
+<<<<<<< HEAD
 MAKE_FSD_ARRAY_HEADERS(size_t, vm_variables)
+=======
+MAKE_FSD_ARRAY_HEADERS(uint32_t, symbol)
+>>>>>>> 7a645d3c70e92c6b7396c75d05a284be10a3bc99
 
 // Variable element-size dynamic array (VSD array). Used for the AST structure and for environment variables
 typedef struct

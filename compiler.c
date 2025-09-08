@@ -71,6 +71,7 @@ void compile(compiler* compiler, void* ast_node)
     int element_supertype = GET_ELEMENT_SUPERTYPE(ast_node);
     int element_line = ((Element*)ast_node)->line;
 
+    size_t symbol_id = 0;
     size_t arr_offset, alloc_size, aligned_target_addr;
 
     if (element_supertype == Statement)
@@ -122,6 +123,7 @@ void compile(compiler* compiler, void* ast_node)
                 }
 
                 SET_LABEL_ADDR(exit_label);
+                break;
 
             case Assignment_stmt:
                 Assignment* assign_stmt = ((Assignment*)ast_node); 
@@ -129,7 +131,10 @@ void compile(compiler* compiler, void* ast_node)
 
                 compile(compiler, assign_stmt->rhs);
 
+<<<<<<< HEAD
                 size_t symbol_id = 0;
+=======
+>>>>>>> 7a645d3c70e92c6b7396c75d05a284be10a3bc99
                 if (hashmap_get(&compiler->symbols, &lhs_identifier->name, &symbol_id) == -1)
                 {
                     hashmap_set(&compiler->symbols, lhs_identifier->name, compiler->num_symbols);
@@ -137,8 +142,13 @@ void compile(compiler* compiler, void* ast_node)
                 }
 
                 ADD_INSTRUCTION(0x21);
+<<<<<<< HEAD
                 ADD_LABEL_ID(symbol_id); 
 
+=======
+                ADD_LABEL_ID(symbol_id);
+                break;
+>>>>>>> 7a645d3c70e92c6b7396c75d05a284be10a3bc99
         }
     }
 
@@ -184,6 +194,7 @@ void compile(compiler* compiler, void* ast_node)
             case Identifier_expr:
                 Identifier* identifier_expr = ((Identifier*)ast_node);
 
+<<<<<<< HEAD
                 size_t symbol_id = 0;
                 if (hashmap_get(&compiler->symbols, &identifier_expr->name, &symbol_id) == -1)
                 {
@@ -193,6 +204,16 @@ void compile(compiler* compiler, void* ast_node)
                 ADD_INSTRUCTION(0x20);
                 ADD_LABEL_ID(symbol_id); 
 
+=======
+                if (hashmap_get(&compiler->symbols, &identifier_expr->name, &symbol_id) == -1)
+                {
+                    PRINT_COMPILER_ERROR_AND_QUIT(identifier_expr->base.line, "Undeclared variable %.*s\n", identifier_expr->name.length, identifier_expr->name.string_value);
+                }
+
+                ADD_INSTRUCTION(0x20);
+                ADD_LABEL_ID(symbol_id);
+                break;
+>>>>>>> 7a645d3c70e92c6b7396c75d05a284be10a3bc99
 
             case Grouping_expr:
                 compile(compiler, ((Grouping*)ast_node)->expression);
@@ -685,13 +706,18 @@ void print_code(compiler* compiler)
                 break;
 
             case 0x20:
+<<<<<<< HEAD
                 printf("            \e[0;34m%02X %02X %02X %02X    %*s    \e[0;32m$%d    \e[0;37m\n",
+=======
+                printf("            \e[0;35m%02X %02X %02X %02X    %*s    \e[0;32m#%d    \e[0;37m\n",
+>>>>>>> 7a645d3c70e92c6b7396c75d05a284be10a3bc99
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
                     (opcode >> 24) & 0xFF,
                     15,
                     "LOAD_GLOBAL",
+<<<<<<< HEAD
                     opcode >>  8
                 );
                 idx += 4;
@@ -699,13 +725,26 @@ void print_code(compiler* compiler)
 
             case 0x21:
                 printf("            \e[0;34m%02X %02X %02X %02X    %*s    \e[0;32m$%d    \e[0;37m\n",
+=======
+                    (opcode >> 8)
+                );
+                idx += 4;
+                break;
+                
+            case 0x21:
+                printf("            \e[0;35m%02X %02X %02X %02X    %*s    \e[0;32m#%d    \e[0;37m\n",
+>>>>>>> 7a645d3c70e92c6b7396c75d05a284be10a3bc99
                     (opcode >>  0) & 0xFF,
                     (opcode >>  8) & 0xFF, 
                     (opcode >> 16) & 0xFF,
                     (opcode >> 24) & 0xFF,
                     15,
                     "STORE_GLOBAL",
+<<<<<<< HEAD
                     opcode >>  8
+=======
+                    (opcode >> 8)
+>>>>>>> 7a645d3c70e92c6b7396c75d05a284be10a3bc99
                 );
                 idx += 4;
                 break;

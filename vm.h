@@ -156,6 +156,15 @@ typedef struct vm_environment
     vsd_array variables_memory;
 } vm_environment;
 
+typedef struct globals
+{
+    hashmap variables;
+    vsd_array variables_memory;
+    hashmap functions;
+    environment* parent;
+    environment_type type;
+};
+
 typedef struct vm
 {
     char stack[STACK_SIZE];

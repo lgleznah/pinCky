@@ -6,6 +6,7 @@ println(x)
 println(y)
 println(z)
 
+<<<<<<< HEAD
 a := x + 1
 println(a)
 println(a * x)
@@ -15,3 +16,7 @@ println(test)
 
 test2 := test + 541
 println(test2)
+=======
+a := x+1
+println(a)
+>>>>>>> 7a645d3c70e92c6b7396c75d05a284be10a3bc99
