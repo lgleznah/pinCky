@@ -1,5 +1,6 @@
 #pragma once
 
+#include "arrays.h"
 #include "compiler_commons.h"
 
 // The VM consists of a single stack.
@@ -52,16 +53,16 @@
 
 // Variable load/store functions
 
-//      0010 0000  <16-bit number>      -> LOAD_GLOBAL n    (Push globals[n] to the stack)
-//      0010 0001  <16-bit number>      -> STORE_GLOBAL n   (Pop the stack into globals[n])
-//      0011 0000  <16-bit number>      -> LOAD_LOCAL n     (Push locals[n] to the stack)
-//      0011 0001  <16-bit number>      -> STORE_LOCAL n    (Pop the stack into locals[n])
+//      0010 0000  <24-bit number>      -> LOAD_GLOBAL n    (Push globals[n] to the stack)
+//      0010 0001  <24-bit number>      -> STORE_GLOBAL n   (Pop the stack into globals[n])
+//      0011 0000  <24-bit number>      -> LOAD_LOCAL n     (Push locals[n] to the stack)
+//      0011 0001  <24-bit number>      -> STORE_LOCAL n    (Pop the stack into locals[n])
 
 // Flow control instructions.
 
-//      0100 0000  <16-bit number>      -> JMP addr         (Unconditional jump to address)
-//      0100 0001  <16-bit number>      -> JMPZ addr        (Jump to address if top of stack is 0/false)
-//      0100 0010  <16-bit number>      -> JSR addr         (Jump to subroutine and store PC)
+//      0100 0000  <24-bit number>      -> JMP addr         (Unconditional jump to address)
+//      0100 0001  <24-bit number>      -> JMPZ addr        (Jump to address if top of stack is 0/false)
+//      0100 0010  <24-bit number>      -> JSR addr         (Jump to subroutine and store PC)
 //      0100 0011                       -> RTS              (Return from subroutine)
 //      0110 1001                       -> HALT             (Halts the VM, nicely)
 
@@ -146,11 +147,23 @@
 #define OPCODE_HALT    0x69
 #define OPCODE_JMPZ    0x41
 #define OPCODE_JMP     0x40
+#define OPCODE_GLOAD   0x20
+#define OPCODE_GSTORE  0x21
+
+typedef struct vm_environment
+{
+    vm_variables_array variable_addrs;
+    vsd_array variables_memory;
+} vm_environment;
 
 typedef struct vm
 {
     char stack[STACK_SIZE];
     vss_array temp_memory;
+
+    vm_environment environment;
+    size_t free_var_idx;
+
     uint32_t sp;
     uint32_t pc;
 } vm;

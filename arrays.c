@@ -12,6 +12,7 @@ MAKE_FSD_ARRAY_FUNCTIONS(size_t, statement)
 MAKE_FSD_ARRAY_FUNCTIONS(string_type, string)
 MAKE_FSD_ARRAY_FUNCTIONS(size_t, expression)
 MAKE_FSD_ARRAY_FUNCTIONS(uint32_t, label_addr)
+MAKE_FSD_ARRAY_FUNCTIONS(size_t, vm_variables)
 
 void init_vsd_array(vsd_array* array, size_t initial_size)
 {

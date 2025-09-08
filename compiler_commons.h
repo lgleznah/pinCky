@@ -64,3 +64,6 @@ typedef struct
         string_type string_value;
     } value;
 } expression_result;
+
+
+size_t get_value_size(expression_result value);

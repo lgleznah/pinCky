@@ -1,5 +1,6 @@
 #include "vm.h"
 
+#include "arrays.h"
 #include "compiler_commons.h"
 #include "types.h"
 #include "utils.h"
@@ -9,16 +10,100 @@
 #include <string.h>
 
 
+void push_nonstring(vm* vm, expression_result value)
+{
+    *(expression_result*)(vm->stack + vm->sp) = value;
+    vm->sp += sizeof(expression_result);
+    return;
+}
+
+void push_string(vm* vm, expression_result value)
+{
+    char* string_ptr_stack = (char*)(vm->stack + vm->sp);
+    memcpy(string_ptr_stack, value.value.string_value.string_value, value.value.string_value.length);
+    vm->sp += (value.value.string_value.length + 23) / 24 * 24;
+    *(expression_result*)(vm->stack + vm->sp) = (expression_result) {
+        .type = STRING_VALUE, 
+        .value.string_value = { string_ptr_stack, value.value.string_value.length  }
+    };
+    vm->sp += sizeof(expression_result);
+    return;
+}
+
+void store_global(vm* vm, size_t idx, expression_result value)
+{
+    size_t variable_offset = 0;
+    if (idx < vm->free_var_idx)
+    {
+        if (value.type == STRING_VALUE)
+        {
+            variable_offset = allocate_vsd_array(&vm->environment.variables_memory, get_value_size(value));
+            char* variable_address = (char*)vm->environment.variables_memory.data + variable_offset;
+            memcpy(variable_address, &value, sizeof(expression_result));
+            memcpy(variable_address + sizeof(expression_result), value.value.string_value.string_value, value.value.string_value.length);
+            ((expression_result*)variable_address)->value.string_value.string_value = (char*) variable_offset + sizeof(expression_result);
+            vm->environment.variable_addrs.data[idx] = variable_offset;
+        }
+        else
+        {
+            expression_result* variable_address = (expression_result*)((char*)vm->environment.variables_memory.data + vm->environment.variable_addrs.data[idx]);
+            variable_address->type = value.type;
+            variable_address->value = value.value;
+        }
+        return;
+    }
+
+    variable_offset = allocate_vsd_array(&vm->environment.variables_memory, get_value_size(value));
+    char* variable_address = (char*)vm->environment.variables_memory.data + variable_offset;
+    memcpy(variable_address, &value, sizeof(expression_result));
+    if (value.type == STRING_VALUE)
+    {
+        memcpy(variable_address + sizeof(expression_result), value.value.string_value.string_value, value.value.string_value.length);
+        ((expression_result*)variable_address)->value.string_value.string_value = (char*) (variable_offset + sizeof(expression_result));
+    }
+
+    vm->environment.variable_addrs.data[idx] = variable_offset;
+    vm->free_var_idx = idx + 1;
+}
+
+void load_global(vm* vm, size_t idx)
+{
+    size_t variable_offset = 0;
+    if (idx < vm->free_var_idx)
+    {
+        variable_offset = vm->environment.variable_addrs.data[idx];
+        char* variable_address = (char*)vm->environment.variables_memory.data + variable_offset;
+        expression_result variable = *(expression_result*)variable_address;
+        if(variable.type == STRING_VALUE)
+        {
+            variable.value.string_value.string_value = variable_address + sizeof(expression_result);
+            push_string(vm, variable);
+            return;
+        }
+
+        push_nonstring(vm, variable);
+        return;
+    }
+
+    PRINT_VM_ERROR_AND_QUIT(0, "Cannot find variable at index %ld", idx);
+}
+
 void init_vm(vm* vm)
 {
     vm->sp = 0;
     vm->pc = 0;
     init_vss_array(&vm->temp_memory, 65535);
+
+    init_vm_variables_array(&vm->environment.variable_addrs, 1024);
+    init_vsd_array(&vm->environment.variables_memory, 1024);
+    vm->free_var_idx = 0;
 }
 
 void destroy_vm(vm* vm)
 {
     free_vss_array(&vm->temp_memory);
+    free_vm_variables_array(&vm->environment.variable_addrs);
+    free_vsd_array(&vm->environment.variables_memory);
 }
 
 inline expression_result* pop(vm* vm)
@@ -47,9 +132,9 @@ void run_vm(vm* vm, unsigned char* program)
 {
     char is_running = 1;
     vm->pc = (*(uint32_t*)program) + 8;
-    uint32_t addr;
+    uint32_t addr, var_idx;
 
-    expression_result* lhs, *rhs;
+    expression_result* lhs, *rhs, push_val;
     string_type print_str;
     int lhs_bool_result, rhs_bool_result, stack_advance_amount;
 
@@ -73,36 +158,30 @@ void run_vm(vm* vm, unsigned char* program)
             case OPCODE_IPUSH:
                 addr = instr >> 8;
                 int int_val = *(int*)(program + 8 + addr);
-                *(expression_result*)(vm->stack + vm->sp) = (expression_result) {.type = INT_VALUE, .value.int_value = int_val};
-                vm->sp += sizeof(expression_result);
+                push_val = (expression_result) {.type = INT_VALUE, .value.int_value = int_val};
+                push_nonstring(vm, push_val);
                 break;
 
             case OPCODE_FPUSH:
                 addr = instr >> 8;
                 double float_val = *(double*)(program + 8 + addr);
-                *(expression_result*)(vm->stack + vm->sp) = (expression_result) {.type = FLOAT_VALUE, .value.float_value = float_val};
-                vm->sp += sizeof(expression_result);
+                push_val = (expression_result) {.type = FLOAT_VALUE, .value.float_value = float_val};
+                push_nonstring(vm, push_val);
                 break;
 
             case OPCODE_BPUSH:
                 addr = instr >> 8;
                 char bool_val = *(char*)(program + 8 + addr);
-                *(expression_result*)(vm->stack + vm->sp) = (expression_result) {.type = BOOL_VALUE, .value.bool_value = bool_val};
-                vm->sp += sizeof(expression_result);
+                push_val = (expression_result) {.type = BOOL_VALUE, .value.bool_value = bool_val};
+                push_nonstring(vm, push_val);
                 break;
 
             case OPCODE_SPUSH:
                 addr = instr >> 8;
                 int string_length = *(int*)(program + 8 + addr);
                 char* string_ptr_constants = (char*)(program + 8 + sizeof(int) + addr);
-                char* string_ptr_stack = (char*)(vm->stack + vm->sp);
-                memcpy(string_ptr_stack, string_ptr_constants, string_length);
-                vm->sp += (string_length + 23) / 24 * 24;
-                *(expression_result*)(vm->stack + vm->sp) = (expression_result) {
-                    .type = STRING_VALUE, 
-                    .value.string_value = { string_ptr_stack, string_length }
-                };
-                vm->sp += sizeof(expression_result);
+                push_val = (expression_result) {.type = STRING_VALUE, .value.string_value = {string_ptr_constants, string_length}};
+                push_string(vm, push_val);
                 break;
 
             case OPCODE_ADD:
@@ -249,6 +328,17 @@ void run_vm(vm* vm, unsigned char* program)
             case OPCODE_JMP:
                 uint32_t jump_address = instr >> 8;
                 vm->pc = jump_address;
+                break;
+
+            case OPCODE_GLOAD:
+                var_idx = instr >> 8;
+                load_global(vm, var_idx);
+                break; 
+
+            case OPCODE_GSTORE:
+                var_idx = instr >> 8;
+                rhs = pop(vm);
+                store_global(vm, var_idx, *rhs);
                 break;
         }
     }

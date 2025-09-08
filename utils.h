@@ -17,6 +17,8 @@
 #define PRINT_SYNTAX_ERROR_AND_QUIT(line, ...) printf("%s", KRED); printf("\nSyntax error [line %d]: ", line); printf(__VA_ARGS__); printf(KNRM); exit(1)
 #define PRINT_LEXER_ERROR_AND_QUIT(line, column, ...) printf("%s", KRED); printf("\nLexer error [line %d, column %d]: ", line, column); printf(__VA_ARGS__); printf(KNRM); exit(1)
 #define PRINT_INTERPRETER_ERROR_AND_QUIT(line, ...) printf("%s", KRED); printf("\nInterpreter error [line %d]: ", line); printf(__VA_ARGS__); printf(KNRM); exit(1)
+#define PRINT_COMPILER_ERROR_AND_QUIT(line, ...) printf("%s", KRED); printf("\nCompiler error [line %d]: ", line); printf(__VA_ARGS__); printf(KNRM); exit(1)
+#define PRINT_VM_ERROR_AND_QUIT(line, ...) printf("%s", KRED); printf("\nVM runtime error [line %d]: ", line); printf(__VA_ARGS__); printf(KNRM); exit(1)
 #define PRINT_WARNING(...) printf("%s", KYEL); printf(__VA_ARGS__); printf(KNRM)
 #define PRINT_GOOD(...) printf("%s", KGRN); printf(__VA_ARGS__); printf(KNRM)
 

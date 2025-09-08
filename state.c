@@ -27,23 +27,6 @@ void free_environment(environment* e)
     free_vsd_array(&e->variables_memory);
 }
 
-size_t get_value_size(expression_result value)
-{
-    switch(value.type)
-    {
-        case NONE:
-        case INT_VALUE:
-        case FLOAT_VALUE:
-        case BOOL_VALUE:
-            return sizeof(expression_result);
-
-        case STRING_VALUE:
-            return sizeof(expression_result) + value.value.string_value.length;
-    }
-
-    return 0;
-}
-
 // Set a variable value, either in the current environment (if it exists there), or in the
 // nearest parent in which it exists. If it does not exist, create it in the current environment.
 // For strings, new memory will always be allocated.

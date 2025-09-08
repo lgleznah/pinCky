@@ -1,25 +1,17 @@
-println (2 + 3) * 5 - 1
-println true
-println 1 == 2
-println ~(3 > 2) or ~true
+x := 100
+y := 200
+z := 300
 
-if 0 >= 3 then
-    println "Entered consequence block."
-else
-    println "Entered alternative block."
-end
+println(x)
+println(y)
+println(z)
 
-println "Bye!"
+a := x + 1
+println(a)
+println(a * x)
 
-println true == true
-println true == false
-println false == true
-println false == false
-println true ~= true
-println true ~= false
-println false ~= true
-println false ~= false
-println 3 > 2 ~= false
-println "this" == "that"
-println ~ (-1>2)
-println "a" + "b" == "ab"
+test := "test"
+println(test)
+
+test2 := test + 541
+println(test2)
