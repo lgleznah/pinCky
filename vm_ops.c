@@ -7,6 +7,12 @@
 #include <string.h>
 #include <math.h>
 
+inline void free_if_string(expression_result* val)
+{
+    if (val->type == STRING_VALUE)
+        free(val->value.string_value.string_value);
+}
+
 int unsupported_op(vss_array* temp_memory, expression_result* lhs, expression_result* rhs, expression_result* dest)
 {
     PRINT_ERROR_AND_QUIT("Unsupported operation.\n");
@@ -29,13 +35,16 @@ int float_add(vss_array* temp_memory, expression_result* lhs, expression_result*
 int string_add(vss_array* temp_memory, expression_result* lhs, expression_result* rhs, expression_result* dest)
 {
     string_type res = string_addition(temp_memory, cast_to_string(temp_memory, *lhs), cast_to_string(temp_memory, *rhs));
-    memcpy(dest, res.string_value, res.length);
-    int string_stack_frames = ((res.length + 23) / 24);
-    *(dest + string_stack_frames) = (expression_result) {
+    // Free possibly existing strings in lhs and rhs before smashing those values
+    free_if_string(lhs);
+    free_if_string(rhs);
+
+    *dest = (expression_result) {
         .type=STRING_VALUE,
-        .value.string_value = { (char*)dest, res.length }
+        .value.string_value = { malloc(res.length), res.length }
     };
-    return (1 + string_stack_frames) * sizeof(expression_result);
+    memcpy(dest->value.string_value.string_value, res.string_value, res.length);
+    return sizeof(expression_result);
 }
 
 
@@ -147,7 +156,10 @@ int float_eq(vss_array* temp_memory, expression_result* lhs, expression_result* 
 }
 int str_eq(vss_array* temp_memory, expression_result* lhs, expression_result* rhs, expression_result* dest)
 {
-    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_EQ)};
+    char comp_result = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_EQ);
+    free_if_string(lhs);
+    free_if_string(rhs);
+    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = comp_result};
     return sizeof(expression_result);
 }
 
@@ -169,7 +181,10 @@ int float_neq(vss_array* temp_memory, expression_result* lhs, expression_result*
 }
 int str_neq(vss_array* temp_memory, expression_result* lhs, expression_result* rhs, expression_result* dest)
 {
-    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_NE)};
+    char comp_result = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_NE);
+    free_if_string(lhs);
+    free_if_string(rhs);
+    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = comp_result};
     return sizeof(expression_result);
 }
 
@@ -191,7 +206,10 @@ int float_gt(vss_array* temp_memory, expression_result* lhs, expression_result* 
 }
 int str_gt(vss_array* temp_memory, expression_result* lhs, expression_result* rhs, expression_result* dest)
 {
-    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_GT)};
+    char comp_result = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_GT);
+    free_if_string(lhs);
+    free_if_string(rhs);
+    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = comp_result};
     return sizeof(expression_result);
 }
 
@@ -213,7 +231,10 @@ int float_ge(vss_array* temp_memory, expression_result* lhs, expression_result* 
 }
 int str_ge(vss_array* temp_memory, expression_result* lhs, expression_result* rhs, expression_result* dest)
 {
-    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_GE)};
+    char comp_result = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_GE);
+    free_if_string(lhs);
+    free_if_string(rhs);
+    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = comp_result};
     return sizeof(expression_result);
 }
 
@@ -235,7 +256,10 @@ int float_lt(vss_array* temp_memory, expression_result* lhs, expression_result* 
 }
 int str_lt(vss_array* temp_memory, expression_result* lhs, expression_result* rhs, expression_result* dest)
 {
-    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_LT)};
+    char comp_result = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_LT);
+    free_if_string(lhs);
+    free_if_string(rhs);
+    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = comp_result};
     return sizeof(expression_result);
 }
 
@@ -257,6 +281,9 @@ int float_le(vss_array* temp_memory, expression_result* lhs, expression_result* 
 }
 int str_le(vss_array* temp_memory, expression_result* lhs, expression_result* rhs, expression_result* dest)
 {
-    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_LE)};
+    char comp_result = string_comparison(&lhs->value.string_value, &rhs->value.string_value, COMPARE_LE);
+    free_if_string(lhs);
+    free_if_string(rhs);
+    *dest = (expression_result) {.type = BOOL_VALUE, .value.bool_value = comp_result};
     return sizeof(expression_result);
 }

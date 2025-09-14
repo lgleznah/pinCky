@@ -19,12 +19,11 @@ void push_nonstring(vm* vm, expression_result value)
 
 void push_string(vm* vm, expression_result value)
 {
-    char* string_ptr_stack = (char*)(vm->stack + vm->sp);
-    memcpy(string_ptr_stack, value.value.string_value.string_value, value.value.string_value.length);
-    vm->sp += (value.value.string_value.length + 23) / 24 * 24;
+    char* string_ptr = malloc(value.value.string_value.length);
+    memcpy(string_ptr, value.value.string_value.string_value, value.value.string_value.length);
     *(expression_result*)(vm->stack + vm->sp) = (expression_result) {
         .type = STRING_VALUE, 
-        .value.string_value = { string_ptr_stack, value.value.string_value.length  }
+        .value.string_value = { string_ptr, value.value.string_value.length  }
     };
     vm->sp += sizeof(expression_result);
     return;
@@ -35,34 +34,22 @@ void store_global(vm* vm, size_t idx, expression_result value)
     size_t variable_offset = 0;
     if (idx < vm->free_var_idx)
     {
-        if (value.type == STRING_VALUE)
-        {
-            variable_offset = allocate_vsd_array(&vm->environment.variables_memory, get_value_size(value));
-            char* variable_address = (char*)vm->environment.variables_memory.data + variable_offset;
-            memcpy(variable_address, &value, sizeof(expression_result));
-            memcpy(variable_address + sizeof(expression_result), value.value.string_value.string_value, value.value.string_value.length);
-            ((expression_result*)variable_address)->value.string_value.string_value = (char*) variable_offset + sizeof(expression_result);
-            vm->environment.variable_addrs.data[idx] = variable_offset;
-        }
-        else
-        {
-            expression_result* variable_address = (expression_result*)((char*)vm->environment.variables_memory.data + vm->environment.variable_addrs.data[idx]);
-            variable_address->type = value.type;
-            variable_address->value = value.value;
-        }
+        expression_result* variable_address = (expression_result*)((char*)vm->environment.variables_memory.data + vm->environment.variable_addrs.data[idx]);
+
+        if (variable_address->type == STRING_VALUE)
+            free(variable_address->value.string_value.string_value);
+
+        variable_address->type = value.type;
+        variable_address->value = value.value;
         return;
     }
 
-    variable_offset = allocate_vsd_array(&vm->environment.variables_memory, get_value_size(value));
-    char* variable_address = (char*)vm->environment.variables_memory.data + variable_offset;
-    memcpy(variable_address, &value, sizeof(expression_result));
-    if (value.type == STRING_VALUE)
-    {
-        memcpy(variable_address + sizeof(expression_result), value.value.string_value.string_value, value.value.string_value.length);
-        ((expression_result*)variable_address)->value.string_value.string_value = (char*) (variable_offset + sizeof(expression_result));
-    }
+    variable_offset = allocate_vsd_array(&vm->environment.variables_memory, sizeof(expression_result));
+    expression_result* variable_address = (expression_result*)((char*)vm->environment.variables_memory.data + variable_offset);
+    variable_address->type = value.type;
+    variable_address->value = value.value;
 
-    vm->environment.variable_addrs.data[idx] = variable_offset;
+    insert_vm_variables_array(&vm->environment.variable_addrs, variable_offset);
     vm->free_var_idx = idx + 1;
 }
 
@@ -76,7 +63,6 @@ void load_global(vm* vm, size_t idx)
         expression_result variable = *(expression_result*)variable_address;
         if(variable.type == STRING_VALUE)
         {
-            variable.value.string_value.string_value = variable_address + sizeof(expression_result);
             push_string(vm, variable);
             return;
         }
@@ -102,6 +88,14 @@ void init_vm(vm* vm)
 void destroy_vm(vm* vm)
 {
     free_vss_array(&vm->temp_memory);
+
+    for (int i = 0; i < vm->free_var_idx; i++)
+    {
+        expression_result* global = vm->environment.variables_memory.data + vm->environment.variable_addrs.data[i];
+        if (global->type == STRING_VALUE)
+            free(global->value.string_value.string_value);
+    }
+
     free_vm_variables_array(&vm->environment.variable_addrs);
     free_vsd_array(&vm->environment.variables_memory);
 }
@@ -109,23 +103,14 @@ void destroy_vm(vm* vm)
 inline expression_result* pop(vm* vm)
 {
     expression_result* res = (expression_result*)(vm->stack + vm->sp - sizeof(expression_result));
-    switch (res->type)
-    {
-        case NONE:
-        case INT_VALUE:
-        case FLOAT_VALUE:
-        case BOOL_VALUE:
-            vm->sp -= sizeof(expression_result);
-            break;
-        
-
-        case STRING_VALUE:
-            int length = res->value.string_value.length; 
-            vm->sp -= (length + 23) / 24 * 24 + 24;
-            break;
-    }
-
+    vm->sp -= sizeof(expression_result);
     return res;
+}
+
+inline void free_if_string(expression_result* val)
+{
+    if (val->type == STRING_VALUE)
+        free(val->value.string_value.string_value);
 }
 
 void run_vm(vm* vm, unsigned char* program)
@@ -213,15 +198,23 @@ void run_vm(vm* vm, unsigned char* program)
                 break;
 
             case OPCODE_AND:
-                rhs_bool_result = cast_to_bool(&vm->temp_memory, *pop(vm));
-                lhs_bool_result = cast_to_bool(&vm->temp_memory, *pop(vm));
+                rhs = pop(vm);
+                lhs = pop(vm);
+                rhs_bool_result = cast_to_bool(&vm->temp_memory, *rhs);
+                lhs_bool_result = cast_to_bool(&vm->temp_memory, *lhs);
+                free_if_string(rhs);
+                free_if_string(lhs);
                 *(expression_result*)(vm->stack + vm->sp) = (expression_result) {.type = BOOL_VALUE, .value.bool_value = rhs_bool_result & lhs_bool_result};
                 vm->sp += sizeof(expression_result);
                 break;
 
             case OPCODE_OR:
-                rhs_bool_result = cast_to_bool(&vm->temp_memory, *pop(vm));
-                lhs_bool_result = cast_to_bool(&vm->temp_memory, *pop(vm));
+                rhs = pop(vm);
+                lhs = pop(vm);
+                rhs_bool_result = cast_to_bool(&vm->temp_memory, *rhs);
+                lhs_bool_result = cast_to_bool(&vm->temp_memory, *lhs);
+                free_if_string(rhs);
+                free_if_string(lhs);
                 *(expression_result*)(vm->stack + vm->sp) = (expression_result) {.type = BOOL_VALUE, .value.bool_value = rhs_bool_result | lhs_bool_result};
                 vm->sp += sizeof(expression_result);
                 break;
@@ -301,12 +294,14 @@ void run_vm(vm* vm, unsigned char* program)
                 rhs = pop(vm);
                 print_str = cast_to_string(&vm->temp_memory, *rhs);
                 printf("%.*s", print_str.length, print_str.string_value);
+                free_if_string(rhs);
                 break;
 
             case OPCODE_PRINTLN:
                 rhs = pop(vm);
                 print_str = cast_to_string(&vm->temp_memory, *rhs);
                 printf("%.*s\n", print_str.length, print_str.string_value);
+                free_if_string(rhs);
                 break;
 
             case OPCODE_JMPZ:

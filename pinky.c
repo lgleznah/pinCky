@@ -76,6 +76,8 @@ int main(const int argc, char* argv[])
     // Close stuff
     free_lexer(&lexer);
     free_parser(&parser);
+    destroy_compiler(&compiler);
+    destroy_vm(&vm);
     //free_interpreter(&interpreter);
     fclose(fp);
 
