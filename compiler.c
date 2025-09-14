@@ -168,30 +168,58 @@ void compile(compiler* compiler, void* ast_node)
                 SET_LABEL_ADDR(exit_label);
                 break;
 
+            case While_stmt:
+                While* while_stmt = ((While*)ast_node);
+
+                GENERATE_LABEL_ID(while_begin_label);
+                GENERATE_LABEL_ID(while_end_label);
+
+                SET_LABEL_ADDR(while_begin_label);
+                compile(compiler, while_stmt->condition);
+                ADD_INSTRUCTION(0x41);
+                ADD_LABEL_ID(while_end_label);
+
+                compiler->scope_depth += 1;
+                compile(compiler, while_stmt->statements);
+                destroy_block(compiler);
+
+                ADD_INSTRUCTION(0x40);
+                ADD_LABEL_ID(while_begin_label);
+
+                SET_LABEL_ADDR(while_end_label);
+                break; 
+
             case Assignment_stmt:
                 Assignment* assign_stmt = ((Assignment*)ast_node); 
                 Identifier* lhs_identifier = assign_stmt->lhs;
 
                 compile(compiler, assign_stmt->rhs);
 
-                if (compiler->scope_depth == 0)
+                if (find_local_symbol(compiler, &lhs_identifier->name, &symbol_id) == -1 && hashmap_get(&compiler->symbols, &lhs_identifier->name, &symbol_id) == -1)
                 {
-                    if (hashmap_get(&compiler->symbols, &lhs_identifier->name, &symbol_id) == -1)
+                    if (compiler->scope_depth == 0)
                     {
                         hashmap_set(&compiler->symbols, lhs_identifier->name, compiler->num_symbols);
                         symbol_id = compiler->num_symbols++;
+                        ADD_INSTRUCTION(0x21);
+                        ADD_LABEL_ID(symbol_id);
                     }
-                    ADD_INSTRUCTION(0x21);
-                    ADD_LABEL_ID(symbol_id);
-                }
-                else {
-                    if (find_local_symbol(compiler, &lhs_identifier->name, &symbol_id) == -1)
+                    else
                     {
                         insert_string_array(&compiler->local_symbol_names, lhs_identifier->name);
                         insert_uint32_t_array(&compiler->local_symbol_depths, compiler->scope_depth);
                         symbol_id = compiler->num_local_symbols++;
                     }
-                    else {
+                }
+                else
+                {
+                    if (hashmap_get(&compiler->symbols, &lhs_identifier->name, &symbol_id) != -1)
+                    {
+                        ADD_INSTRUCTION(0x21);
+                        ADD_LABEL_ID(symbol_id);
+                    }
+                    else
+                    {
                         ADD_INSTRUCTION(0x31);
                         ADD_LABEL_ID(symbol_id);
                     }
