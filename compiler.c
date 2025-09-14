@@ -3,6 +3,7 @@
 #include "arrays.h"
 #include "hashmap.h"
 #include "model.h"
+#include "string_type.h"
 #include "tokens.h"
 #include "utils.h"
 
@@ -52,8 +53,14 @@ void init_compiler(compiler* compiler)
     init_vsd_array(&compiler->program, 0);
     init_label_addr_array(&compiler->label_addrs, 1024);
     init_hashmap(&compiler->symbols, 32, 32);
+    init_string_array(&compiler->local_symbol_names, 1024);
+    init_uint32_t_array(&compiler->local_symbol_depths, 1024);
 
     compiler->constants_size = 0;
+    compiler->scope_depth = 0;
+
+    compiler->num_symbols = 0;
+    compiler->num_local_symbols = 0;
 }
 
 void destroy_compiler(compiler* compiler)
@@ -61,8 +68,39 @@ void destroy_compiler(compiler* compiler)
     free_vsd_array(&compiler->program);
     free_label_addr_array(&compiler->label_addrs);
     free_hashmap(&compiler->symbols);
+    free_string_array(&compiler->local_symbol_names);
+    free_uint32_t_array(&compiler->local_symbol_depths);
 
     compiler->constants_size = 0;
+}
+
+int find_local_symbol(const compiler* compiler, const string_type* key, size_t* value)
+{
+    for (int i = 0; i < compiler->num_local_symbols; i++)
+    {
+        if (string_comparison(key, &compiler->local_symbol_names.data[i], COMPARE_EQ))
+        {
+            *value = i;
+            return 0;
+        }
+    }
+
+
+    return -1;
+}
+
+void destroy_block(compiler* compiler)
+{
+    size_t arr_offset;
+    compiler->scope_depth -= 1;
+    for (int i = compiler->num_local_symbols-1; compiler->local_symbol_depths.data[i] > compiler->scope_depth; i--)
+    {
+        ADD_INSTRUCTION(0x08);
+        ADD_INSTRUCTION_PADDING(3);
+        compiler->num_local_symbols -= 1;
+        compiler->local_symbol_depths.used -= 1;
+        compiler->local_symbol_names.used -= 1;
+    }
 }
 
 void compile(compiler* compiler, void* ast_node)
@@ -112,14 +150,19 @@ void compile(compiler* compiler, void* ast_node)
                 ADD_INSTRUCTION(0x41); 
                 ADD_LABEL_ID(else_label);
 
+                compiler->scope_depth += 1;
                 compile(compiler, if_stmt->then_branch);
+                destroy_block(compiler);
+
                 ADD_INSTRUCTION(0x40);
                 ADD_LABEL_ID(exit_label); 
 
                 SET_LABEL_ADDR(else_label);
                 if (if_stmt->else_branch != NULL)
                 {
+                    compiler->scope_depth += 1;
                     compile(compiler, if_stmt->else_branch);
+                    destroy_block(compiler);
                 }
 
                 SET_LABEL_ADDR(exit_label);
@@ -131,15 +174,29 @@ void compile(compiler* compiler, void* ast_node)
 
                 compile(compiler, assign_stmt->rhs);
 
-                if (hashmap_get(&compiler->symbols, &lhs_identifier->name, &symbol_id) == -1)
+                if (compiler->scope_depth == 0)
                 {
-                    hashmap_set(&compiler->symbols, lhs_identifier->name, compiler->num_symbols);
-                    symbol_id = compiler->num_symbols++;
+                    if (hashmap_get(&compiler->symbols, &lhs_identifier->name, &symbol_id) == -1)
+                    {
+                        hashmap_set(&compiler->symbols, lhs_identifier->name, compiler->num_symbols);
+                        symbol_id = compiler->num_symbols++;
+                    }
+                    ADD_INSTRUCTION(0x21);
+                    ADD_LABEL_ID(symbol_id);
+                }
+                else {
+                    if (find_local_symbol(compiler, &lhs_identifier->name, &symbol_id) == -1)
+                    {
+                        insert_string_array(&compiler->local_symbol_names, lhs_identifier->name);
+                        insert_uint32_t_array(&compiler->local_symbol_depths, compiler->scope_depth);
+                        symbol_id = compiler->num_local_symbols++;
+                    }
+                    else {
+                        ADD_INSTRUCTION(0x31);
+                        ADD_LABEL_ID(symbol_id);
+                    }
                 }
 
-                ADD_INSTRUCTION(0x21);
-
-                ADD_LABEL_ID(symbol_id);
                 break;
         }
     }
@@ -186,13 +243,22 @@ void compile(compiler* compiler, void* ast_node)
             case Identifier_expr:
                 Identifier* identifier_expr = ((Identifier*)ast_node);
 
-                if (hashmap_get(&compiler->symbols, &identifier_expr->name, &symbol_id) == -1)
+                if (find_local_symbol(compiler, &identifier_expr->name, &symbol_id) != -1)
                 {
-                    PRINT_COMPILER_ERROR_AND_QUIT(identifier_expr->base.line, "Undeclared variable %.*s\n", identifier_expr->name.length, identifier_expr->name.string_value);
+                    ADD_INSTRUCTION(0x30);
+                    ADD_LABEL_ID(symbol_id);
+                    break;
                 }
 
-                ADD_INSTRUCTION(0x20);
-                ADD_LABEL_ID(symbol_id);
+                if (hashmap_get(&compiler->symbols, &identifier_expr->name, &symbol_id) != -1)
+                {
+                    ADD_INSTRUCTION(0x20);
+                    ADD_LABEL_ID(symbol_id);
+                    break;
+                }
+
+                PRINT_COMPILER_ERROR_AND_QUIT(identifier_expr->base.line, "Undeclared variable %.*s\n", identifier_expr->name.length, identifier_expr->name.string_value);
+
                 break;
 
             case Grouping_expr:
@@ -411,6 +477,18 @@ void print_code(compiler* compiler)
                 idx += 4;
                 break;
 
+            case 0x08:
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "POP"
+                );
+                idx += 4;
+                break;
+
             case 0x10:
                 printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
                     (opcode >>  0) & 0xFF,
@@ -422,7 +500,6 @@ void print_code(compiler* compiler)
                 );
                 idx += 4;
                 break;
-
 
             case 0x11:
                 printf("            \e[0;36m%02X %02X %02X %02X    %*s\e[0;37m\n", 
@@ -706,6 +783,32 @@ void print_code(compiler* compiler)
                     (opcode >> 24) & 0xFF,
                     15,
                     "STORE_GLOBAL",
+                    opcode >>  8
+                );
+                idx += 4;
+                break;
+
+            case 0x30:
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s    \e[0;32m$%d    \e[0;37m\n",
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "LOAD_LOCAL",
+                    opcode >>  8
+                );
+                idx += 4;
+                break;
+
+            case 0x31:
+                printf("            \e[0;34m%02X %02X %02X %02X    %*s    \e[0;32m$%d    \e[0;37m\n",
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "STORE_LOCAL",
                     opcode >>  8
                 );
                 idx += 4;

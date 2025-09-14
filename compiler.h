@@ -16,7 +16,12 @@ typedef struct compiler
     hashmap symbols;
     uint32_t num_symbols;
 
+    string_array local_symbol_names;
+    uint32_t_array local_symbol_depths;
+    uint32_t num_local_symbols;
+
     uint32_t constants_size;
+    uint32_t scope_depth;
 } compiler;
 
 void init_compiler(compiler* compiler);

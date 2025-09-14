@@ -1,25 +1,21 @@
 x := 100
 y := 200
-z := 300
 
-println(x)
-println(y)
-println(z)
-
-a := x + 1
-println(a)
-println(a * x)
-
-test := "test"
-println(test)
-
-test2 := test + 541
-println(test2)
-test2 := test2 + 541
-println(test2)
-test2 := test2 + 541
-println(test2)
-
-test2 := 'patata'
-println(test2 + test + ' ' + test2)
-
+if x > 0 then
+  a := 10
+  b := 20
+  if x > 1 then
+    c := 3
+    a := c + 2
+    println(a)
+    println(c)
+    if x > 2 then
+      d := 2 + b + a
+      println(d)
+    else
+      c := 0
+      e := 1 + 2 - 4 + (3 - 2)
+      println(e)
+    end
+  end
+end

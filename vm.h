@@ -126,6 +126,7 @@
 #define OPCODE_FPUSH   0x02
 #define OPCODE_BPUSH   0x03
 #define OPCODE_SPUSH   0x04
+#define OPCODE_POP     0x08
 #define OPCODE_ADD     0x10
 #define OPCODE_SUB     0x11
 #define OPCODE_MUL     0x12
@@ -149,6 +150,8 @@
 #define OPCODE_JMP     0x40
 #define OPCODE_GLOAD   0x20
 #define OPCODE_GSTORE  0x21
+#define OPCODE_LLOAD   0x30
+#define OPCODE_LSTORE  0x31
 
 typedef struct vm_environment
 {

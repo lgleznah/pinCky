@@ -74,6 +74,31 @@ void load_global(vm* vm, size_t idx)
     PRINT_VM_ERROR_AND_QUIT(0, "Cannot find variable at index %ld", idx);
 }
 
+void store_local(vm* vm, size_t idx, expression_result value)
+{
+    expression_result* variable_address = (expression_result*)((char*)vm->stack + idx * sizeof(expression_result));
+
+    if (variable_address->type == STRING_VALUE)
+        free(variable_address->value.string_value.string_value);
+
+    variable_address->type = value.type;
+    variable_address->value = value.value;
+    return;
+}
+
+void load_local(vm* vm, size_t idx)
+{
+    expression_result* variable_address = (expression_result*)((char*)vm->stack + idx * sizeof(expression_result));
+    if(variable_address->type == STRING_VALUE)
+    {
+        push_string(vm, *variable_address);
+        return;
+    }
+
+    push_nonstring(vm, *variable_address);
+    return;
+}
+
 void init_vm(vm* vm)
 {
     vm->sp = 0;
@@ -167,6 +192,11 @@ void run_vm(vm* vm, unsigned char* program)
                 char* string_ptr_constants = (char*)(program + 8 + sizeof(int) + addr);
                 push_val = (expression_result) {.type = STRING_VALUE, .value.string_value = {string_ptr_constants, string_length}};
                 push_string(vm, push_val);
+                break;
+
+            case OPCODE_POP:
+                rhs = pop(vm);
+                free_if_string(rhs);
                 break;
 
             case OPCODE_ADD:
@@ -306,12 +336,11 @@ void run_vm(vm* vm, unsigned char* program)
 
             case OPCODE_JMPZ:
                 rhs = pop(vm);
-                vm->sp += sizeof(expression_result);
                 if (rhs->type != BOOL_VALUE)
                 {
                     PRINT_ERROR_AND_QUIT("Condition value is not boolean");
                 }
-                
+
                 if (!rhs->value.bool_value)
                 {
                     uint32_t jump_address = instr >> 8;
@@ -334,6 +363,17 @@ void run_vm(vm* vm, unsigned char* program)
                 var_idx = instr >> 8;
                 rhs = pop(vm);
                 store_global(vm, var_idx, *rhs);
+                break;
+
+            case OPCODE_LLOAD:
+                var_idx = instr >> 8;
+                load_local(vm, var_idx);
+                break; 
+
+            case OPCODE_LSTORE:
+                var_idx = instr >> 8;
+                rhs = pop(vm);
+                store_local(vm, var_idx, *rhs);
                 break;
         }
     }
