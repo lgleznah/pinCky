@@ -55,7 +55,7 @@ int main(const int argc, char* argv[])
 
     // Compiler stage
     compiler compiler;
-    init_compiler(&compiler);
+    init_compiler(&compiler, lexer.buffer, lexer.length);
     PRINT_GOOD("Generating code for %s\n", filename);
     unsigned char* bytecode = compile_code(&compiler, ast);
     print_code(&compiler);

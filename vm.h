@@ -18,6 +18,11 @@
 //      0000 x010 (3 byte address)      -> FPUSH (PUSH Float)
 //      0000 x011 (3 byte address)      -> BPUSH (PUSH Boolean)
 //      0000 x100 (3 byte address)      -> SPUSH (PUSH String)
+//      0000 0101 (3 byte number)       -> CHASP (CHAnge Stack Pointer)
+
+// This last instruction is special in the sense that it allows to increment/decrement
+// the stack pointer without potentially freeing strings by popping. This is used
+// for function calls.
 
 // Stack values are tagged with a one-byte tag, the same as the one specified in the
 // result_type enum. The stack grows from the smallest address of an array towards
@@ -126,6 +131,7 @@
 #define OPCODE_FPUSH   0x02
 #define OPCODE_BPUSH   0x03
 #define OPCODE_SPUSH   0x04
+#define OPCODE_CHASP   0x05
 #define OPCODE_POP     0x08
 #define OPCODE_ADD     0x10
 #define OPCODE_SUB     0x11
@@ -152,6 +158,8 @@
 #define OPCODE_GSTORE  0x21
 #define OPCODE_LLOAD   0x30
 #define OPCODE_LSTORE  0x31
+#define OPCODE_JSR     0x42
+#define OPCODE_RTS     0x43
 
 typedef struct vm_environment
 {
@@ -177,6 +185,7 @@ typedef struct vm
     size_t free_var_idx;
 
     uint32_t sp;
+    uint32_t fp;
     uint32_t pc;
 } vm;
 

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "arrays.h"
 #include "lexer.h"
 #include "utils.h"
 
@@ -309,6 +310,8 @@ size_t func_decl(parser* parser)
     size_t result = allocate_vsd_array(&parser->ast_array, sizeof(FuncDecl) + params.used * sizeof(string_type));
     init_FuncDecl(OFFSET_PTR(result), func_name_str, &params, statements, parser->ast_array.data, func_name->line);
 
+    free_string_array(&params);
+
     return result;
 }
 
@@ -547,6 +550,8 @@ size_t primary(parser* parser)
 
         size_t result = allocate_vsd_array(&parser->ast_array, sizeof(FuncCall) + args.used * sizeof(void*));
         init_FuncCall(OFFSET_PTR(result), func_name_str, &args, parser->ast_array.data, identifier_token->line);
+
+        free_expression_array(&args);
 
         return result;
     }

@@ -11,6 +11,9 @@ typedef struct compiler
     vsd_array temp_code;
     vsd_array program;
 
+    char* source_addr;
+    int source_length;
+
     label_addr_array label_addrs;
 
     hashmap symbols;
@@ -24,7 +27,7 @@ typedef struct compiler
     uint32_t scope_depth;
 } compiler;
 
-void init_compiler(compiler* compiler);
+void init_compiler(compiler* compiler, char* source_addr, int source_length);
 void destroy_compiler(compiler* compiler);
 
 void print_code(compiler* compiler);

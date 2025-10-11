@@ -76,7 +76,7 @@ void load_global(vm* vm, size_t idx)
 
 void store_local(vm* vm, size_t idx, expression_result value)
 {
-    expression_result* variable_address = (expression_result*)((char*)vm->stack + idx * sizeof(expression_result));
+    expression_result* variable_address = (expression_result*)((char*)vm->stack + vm->fp + idx * sizeof(expression_result));
 
     if (variable_address->type == STRING_VALUE)
         free(variable_address->value.string_value.string_value);
@@ -88,7 +88,7 @@ void store_local(vm* vm, size_t idx, expression_result value)
 
 void load_local(vm* vm, size_t idx)
 {
-    expression_result* variable_address = (expression_result*)((char*)vm->stack + idx * sizeof(expression_result));
+    expression_result* variable_address = (expression_result*)((char*)vm->stack + vm->fp + idx * sizeof(expression_result));
     if(variable_address->type == STRING_VALUE)
     {
         push_string(vm, *variable_address);
@@ -103,6 +103,7 @@ void init_vm(vm* vm)
 {
     vm->sp = 0;
     vm->pc = 0;
+    vm->fp = 0;
     init_vss_array(&vm->temp_memory, 65535);
 
     init_vm_variables_array(&vm->environment.variable_addrs, 1024);
@@ -167,31 +168,35 @@ void run_vm(vm* vm, unsigned char* program)
 
             case OPCODE_IPUSH:
                 addr = instr >> 8;
-                int int_val = *(int*)(program + 8 + addr);
+                int int_val = *(int*)(program + addr);
                 push_val = (expression_result) {.type = INT_VALUE, .value.int_value = int_val};
                 push_nonstring(vm, push_val);
                 break;
 
             case OPCODE_FPUSH:
                 addr = instr >> 8;
-                double float_val = *(double*)(program + 8 + addr);
+                double float_val = *(double*)(program + addr);
                 push_val = (expression_result) {.type = FLOAT_VALUE, .value.float_value = float_val};
                 push_nonstring(vm, push_val);
                 break;
 
             case OPCODE_BPUSH:
                 addr = instr >> 8;
-                char bool_val = *(char*)(program + 8 + addr);
+                char bool_val = *(char*)(program + addr);
                 push_val = (expression_result) {.type = BOOL_VALUE, .value.bool_value = bool_val};
                 push_nonstring(vm, push_val);
                 break;
 
             case OPCODE_SPUSH:
                 addr = instr >> 8;
-                int string_length = *(int*)(program + 8 + addr);
-                char* string_ptr_constants = (char*)(program + 8 + sizeof(int) + addr);
+                int string_length = *(int*)(program + addr);
+                char* string_ptr_constants = (char*)(program + sizeof(int) + addr);
                 push_val = (expression_result) {.type = STRING_VALUE, .value.string_value = {string_ptr_constants, string_length}};
                 push_string(vm, push_val);
+                break;
+
+            case OPCODE_CHASP:
+                vm->sp = (int32_t)(vm->sp) + ((int32_t)instr >> 8) * sizeof(expression_result);
                 break;
 
             case OPCODE_POP:
@@ -374,6 +379,30 @@ void run_vm(vm* vm, unsigned char* program)
                 var_idx = instr >> 8;
                 rhs = pop(vm);
                 store_local(vm, var_idx, *rhs);
+                break;
+
+            case OPCODE_JSR:
+                addr = instr >> 8;
+                push_val = (expression_result) {.type = INT_VALUE, .value.int_value = vm->fp};
+                push_nonstring(vm, push_val);
+                push_val = (expression_result) {.type = INT_VALUE, .value.int_value = vm->pc};
+                push_nonstring(vm, push_val);
+                vm->fp = vm->sp;
+                vm->pc = addr;
+                break;
+
+            case OPCODE_RTS:
+                rhs = pop(vm);
+                while(vm->sp > vm->fp)
+                {
+                    lhs = pop(vm);
+                    free_if_string(lhs);
+                }
+
+                vm->pc = pop(vm)->value.int_value; 
+                vm->fp = pop(vm)->value.int_value;
+                *(expression_result*)(vm->stack + vm->sp) = *rhs;
+                vm->sp += sizeof(expression_result);
                 break;
         }
     }

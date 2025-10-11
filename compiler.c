@@ -30,6 +30,7 @@
 
 #define ADD_LAST_CONSTANT_OFFSET do { \
     arr_offset = allocate_vsd_array(&compiler->temp_code, 3); \
+    aligned_target_addr += 8; \
     *(char*)((char*)(compiler->temp_code.data) + arr_offset + 0) = aligned_target_addr          & 0xFF; \
     *(char*)((char*)(compiler->temp_code.data) + arr_offset + 1) = (aligned_target_addr >> 8  ) & 0xFF; \
     *(char*)((char*)(compiler->temp_code.data) + arr_offset + 2) = (aligned_target_addr >> 16 ) & 0xFF; \
@@ -48,7 +49,7 @@
 
 #define SET_LABEL_ADDR(label) compiler->label_addrs.data[label] = compiler->temp_code.used
 
-void init_compiler(compiler* compiler) 
+void init_compiler(compiler* compiler, char* source_addr, int source_length) 
 {
     init_vsd_array(&compiler->program, 0);
     init_label_addr_array(&compiler->label_addrs, 1024);
@@ -61,10 +62,25 @@ void init_compiler(compiler* compiler)
 
     compiler->num_symbols = 0;
     compiler->num_local_symbols = 0;
+
+    compiler->source_addr = source_addr;
+    compiler->source_length = source_length;
 }
 
 void destroy_compiler(compiler* compiler)
 {
+    // Free up temp function names
+    for (int i = 0; i < compiler->symbols.n_buckets; i++)
+    {
+        for (int j = 0; j < compiler->symbols.bucket_element_count[i]; j++)
+        {
+            hm_entry* elem = &compiler->symbols.bucket_elements[i + j * compiler->symbols.bucket_capacity];
+            if (elem->key.string_value < compiler->source_addr || elem->key.string_value >= compiler->source_addr + compiler->source_length)
+            {
+                free(elem->key.string_value);
+            }
+        }
+    }
     free_vsd_array(&compiler->program);
     free_label_addr_array(&compiler->label_addrs);
     free_hashmap(&compiler->symbols);
@@ -76,7 +92,7 @@ void destroy_compiler(compiler* compiler)
 
 int find_local_symbol(const compiler* compiler, const string_type* key, size_t* value)
 {
-    for (int i = 0; i < compiler->num_local_symbols; i++)
+    for (int i = compiler->num_local_symbols-1; i >= 0; i--)
     {
         if (string_comparison(key, &compiler->local_symbol_names.data[i], COMPARE_EQ))
         {
@@ -109,8 +125,14 @@ void compile(compiler* compiler, void* ast_node)
     int element_supertype = GET_ELEMENT_SUPERTYPE(ast_node);
     int element_line = ((Element*)ast_node)->line;
 
-    size_t symbol_id = 0;
+    int func_nargs;
+    string_type funcname_str;
+
+    size_t symbol_id = 0, func_symbol_id = 0;
     size_t arr_offset, alloc_size, aligned_target_addr;
+
+    char funcname[261];
+    char* temp_funcname;
 
     if (element_supertype == Statement)
     {
@@ -195,28 +217,17 @@ void compile(compiler* compiler, void* ast_node)
 
                 compile(compiler, assign_stmt->rhs);
 
-                if (find_local_symbol(compiler, &lhs_identifier->name, &symbol_id) == -1 && hashmap_get(&compiler->symbols, &lhs_identifier->name, &symbol_id) == -1)
+                size_t symbol_id_global;
+                int local_exists = find_local_symbol(compiler, &lhs_identifier->name, &symbol_id) != -1;
+                int global_exists = hashmap_get(&compiler->symbols, &lhs_identifier->name, &symbol_id_global) != -1;
+
+                if (assign_stmt->is_local)
                 {
-                    if (compiler->scope_depth == 0)
-                    {
-                        hashmap_set(&compiler->symbols, lhs_identifier->name, compiler->num_symbols);
-                        symbol_id = compiler->num_symbols++;
-                        ADD_INSTRUCTION(0x21);
-                        ADD_LABEL_ID(symbol_id);
-                    }
-                    else
+                    if (!local_exists)
                     {
                         insert_string_array(&compiler->local_symbol_names, lhs_identifier->name);
                         insert_uint32_t_array(&compiler->local_symbol_depths, compiler->scope_depth);
                         symbol_id = compiler->num_local_symbols++;
-                    }
-                }
-                else
-                {
-                    if (hashmap_get(&compiler->symbols, &lhs_identifier->name, &symbol_id) != -1)
-                    {
-                        ADD_INSTRUCTION(0x21);
-                        ADD_LABEL_ID(symbol_id);
                     }
                     else
                     {
@@ -225,6 +236,141 @@ void compile(compiler* compiler, void* ast_node)
                     }
                 }
 
+                else
+                {
+                    if (!local_exists && !global_exists)
+                    {
+                        if (compiler->scope_depth == 0)
+                        {
+                            hashmap_set(&compiler->symbols, lhs_identifier->name, compiler->num_symbols);
+                            symbol_id = compiler->num_symbols++;
+                            ADD_INSTRUCTION(0x21);
+                            ADD_LABEL_ID(symbol_id);
+                        }
+                        else
+                        {
+                            insert_string_array(&compiler->local_symbol_names, lhs_identifier->name);
+                            insert_uint32_t_array(&compiler->local_symbol_depths, compiler->scope_depth);
+                            symbol_id = compiler->num_local_symbols++;
+                        }
+                    }
+                    else
+                    {
+                        if (local_exists)
+                        {
+                            ADD_INSTRUCTION(0x31);
+                            ADD_LABEL_ID(symbol_id);
+                        }
+                        else
+                        {
+                            ADD_INSTRUCTION(0x21);
+                            ADD_LABEL_ID(symbol_id_global);
+                        }
+                    }
+                }
+
+                break;
+
+            case Return_stmt:
+                Return* retstmt = (Return*)ast_node;
+                compile(compiler, retstmt->expression);
+                ADD_INSTRUCTION(0x43);
+                ADD_INSTRUCTION_PADDING(3);
+                break;
+
+            case FuncDecl_stmt:
+                FuncDecl* funcdecl = (FuncDecl*)ast_node;
+
+                if (funcdecl->name.length > 256)
+                {
+                    PRINT_COMPILER_ERROR_AND_QUIT(funcdecl->base.line, "Function names cannot be longer than 256 chars.\n");
+                }
+
+                if (funcdecl->num_params > 999)
+                {
+                    PRINT_COMPILER_ERROR_AND_QUIT(funcdecl->base.line, "Functions cannot have more than 999 arguments.\n");
+                }
+
+                temp_funcname = malloc(261);
+                memcpy(temp_funcname, funcdecl->name.string_value, funcdecl->name.length);
+                temp_funcname[funcdecl->name.length] = '@';
+                sprintf(temp_funcname + funcdecl->name.length + 1, "%d", funcdecl->num_params);
+                func_nargs = (funcdecl->num_params < 10) ? 1 : ((funcdecl->num_params < 100) ? 2 : 3);
+                funcname_str = (string_type) {temp_funcname, funcdecl->name.length + 1 + func_nargs};
+
+                if (hashmap_get(&compiler->symbols, &funcname_str, &symbol_id) != -1)
+                {
+                    PRINT_COMPILER_ERROR_AND_QUIT(funcdecl->base.line, "Function %.*s was already declared", funcname_str.length, funcname);
+                }
+
+                GENERATE_LABEL_ID(func_end_label);
+                ADD_INSTRUCTION(0x40);
+                ADD_LABEL_ID(func_end_label);
+
+                hashmap_set(&compiler->symbols, funcname_str, compiler->temp_code.used);
+
+                compiler->scope_depth += 1;
+                string_type* param_ptrs = (string_type*)((char*)(funcdecl) + sizeof(FuncDecl));
+                for (int i = 0; i < funcdecl->num_params; i++)
+                {
+                    insert_string_array(&compiler->local_symbol_names, *param_ptrs++);
+                    insert_uint32_t_array(&compiler->local_symbol_depths, compiler->scope_depth);
+                    symbol_id = compiler->num_local_symbols++;
+                }
+                ADD_INSTRUCTION(0x05);
+                ADD_LABEL_ID(funcdecl->num_params);
+                compile(compiler, funcdecl->statements);
+                destroy_block(compiler);
+
+                ADD_INSTRUCTION(0x00);
+                ADD_INSTRUCTION_PADDING(3);
+                ADD_INSTRUCTION(0x43);
+                ADD_INSTRUCTION_PADDING(3);
+
+                SET_LABEL_ADDR(func_end_label);
+
+                break;
+
+            case FuncCall_expr:
+                FuncCall* funccall = (FuncCall*)ast_node;
+
+                if (funccall->name.length > 256)
+                {
+                    PRINT_COMPILER_ERROR_AND_QUIT(funccall->base.line, "Function names cannot be longer than 256 chars.\n");
+                }
+
+                if (funccall->num_args > 999)
+                {
+                    PRINT_COMPILER_ERROR_AND_QUIT(funccall->base.line, "Functions cannot have more than 999 arguments.\n");
+                }
+
+                memcpy(funcname, funccall->name.string_value, funccall->name.length);
+                funcname[funccall->name.length] = '@';
+                sprintf(funcname + funccall->name.length + 1, "%d", funccall->num_args);
+                func_nargs = (funccall->num_args < 10) ? 1 : ((funccall->num_args < 100) ? 2 : 3);
+                funcname_str = (string_type) {funcname, funccall->name.length + 1 + func_nargs};
+
+                if (hashmap_get((&compiler->symbols), &funcname_str, &symbol_id) == -1)
+                {
+                    PRINT_COMPILER_ERROR_AND_QUIT(funccall->base.line, "Function %.*s was not declared", funcname_str.length, funcname); 
+                }
+
+                ADD_INSTRUCTION(0x05);
+                ADD_LABEL_ID(2);
+
+                void** expression_ptrs = (void**)((char*)(funccall) + sizeof(FuncCall));
+                for (int i = 0; i < funccall->num_args; i++)
+                {
+                    compile(compiler, *expression_ptrs++);
+                }
+
+                ADD_INSTRUCTION(0x05);
+                ADD_LABEL_ID(-(2 + funccall->num_args));
+                ADD_INSTRUCTION(0x42);
+                ADD_LABEL_ID(symbol_id);
+                ADD_INSTRUCTION(0x08);
+                ADD_INSTRUCTION_PADDING(3);
+                
                 break;
         }
     }
@@ -291,6 +437,46 @@ void compile(compiler* compiler, void* ast_node)
 
             case Grouping_expr:
                 compile(compiler, ((Grouping*)ast_node)->expression);
+                break;
+
+            case FuncCall_expr:
+                FuncCall* funccall = (FuncCall*)ast_node;
+
+                if (funccall->name.length > 256)
+                {
+                    PRINT_COMPILER_ERROR_AND_QUIT(funccall->base.line, "Function names cannot be longer than 256 chars.\n");
+                }
+
+                if (funccall->num_args > 999)
+                {
+                    PRINT_COMPILER_ERROR_AND_QUIT(funccall->base.line, "Functions cannot have more than 999 arguments.\n");
+                }
+
+                memcpy(funcname, funccall->name.string_value, funccall->name.length);
+                funcname[funccall->name.length] = '@';
+                sprintf(funcname + funccall->name.length + 1, "%d", funccall->num_args);
+                func_nargs = (funccall->num_args < 10) ? 1 : ((funccall->num_args < 100) ? 2 : 3);
+                funcname_str = (string_type) {funcname, funccall->name.length + 1 + func_nargs};
+
+                if (hashmap_get((&compiler->symbols), &funcname_str, &symbol_id) == -1)
+                {
+                    PRINT_COMPILER_ERROR_AND_QUIT(funccall->base.line, "Function %.*s was not declared", funcname_str.length, funcname); 
+                }
+
+                ADD_INSTRUCTION(0x05);
+                ADD_LABEL_ID(2);
+
+                void** expression_ptrs = (void**)((char*)(funccall) + sizeof(FuncCall));
+                for (int i = 0; i < funccall->num_args; i++)
+                {
+                    compile(compiler, *expression_ptrs++);
+                }
+
+                ADD_INSTRUCTION(0x05);
+                ADD_LABEL_ID(-(2 + funccall->num_args));
+                ADD_INSTRUCTION(0x42);
+                ADD_LABEL_ID(symbol_id);
+                
                 break;
 
             case UnOp_expr:
@@ -452,7 +638,7 @@ void print_code(compiler* compiler)
                     (opcode >> 24) & 0xFF, 
                     (opcode >> 16) & 0xFF,
                     (opcode >>  8) & 0xFF,
-                    *(int*)((char*) compiler->program.data + 8 + (opcode >> 8))
+                    *(int*)((char*) compiler->program.data + (opcode >> 8))
                 );
                 idx += 4;
                 break;
@@ -468,7 +654,7 @@ void print_code(compiler* compiler)
                     (opcode >> 24) & 0xFF, 
                     (opcode >> 16) & 0xFF,
                     (opcode >>  8) & 0xFF,
-                    *(double*)((char*) compiler->program.data + 8 + (opcode >> 8))
+                    *(double*)((char*) compiler->program.data + (opcode >> 8))
                 );
                 idx += 4;
                 break;
@@ -484,7 +670,7 @@ void print_code(compiler* compiler)
                     (opcode >> 24) & 0xFF, 
                     (opcode >> 16) & 0xFF,
                     (opcode >>  8) & 0xFF,
-                    ((char)*((char*) compiler->program.data + 8 + (opcode >> 8))) ? "true" : "false"
+                    ((char)*((char*) compiler->program.data + (opcode >> 8))) ? "true" : "false"
                 );
                 idx += 4;
                 break;
@@ -500,7 +686,20 @@ void print_code(compiler* compiler)
                     (opcode >> 24) & 0xFF, 
                     (opcode >> 16) & 0xFF,
                     (opcode >>  8) & 0xFF,
-                    *(int*)((char*) compiler->program.data + 8 + (opcode >> 8))
+                    *(int*)((char*) compiler->program.data + (opcode >> 8))
+                );
+                idx += 4;
+                break;
+
+            case 0x05:
+                printf("            \e[38;2;255;165;0m%02X %02X %02X %02X    %*s    \e[0;32m$%d    \e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "CHASP",
+                    (int32_t)opcode >> 8
                 );
                 idx += 4;
                 break;
@@ -790,6 +989,33 @@ void print_code(compiler* compiler)
                 idx += 4;
                 break;
 
+            case 0x42:
+                printf("            \e[38;2;255;165;0m%02X %02X %02X %02X    %*s    \e[0;33m@0x%02X%02X%02X    \e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "JSR",
+                    (opcode >> 24) & 0xFF,
+                    (opcode >> 16) & 0xFF,
+                    (opcode >>  8) & 0xFF
+                );
+                idx += 4;
+                break;
+
+            case 0x43:
+                printf("            \e[38;2;255;165;0m%02X %02X %02X %02X    %*s\e[0;37m\n", 
+                    (opcode >>  0) & 0xFF,
+                    (opcode >>  8) & 0xFF, 
+                    (opcode >> 16) & 0xFF,
+                    (opcode >> 24) & 0xFF,
+                    15,
+                    "RTS"
+                );
+                idx += 4;
+                break;
+
             case 0x20:
                 printf("            \e[0;34m%02X %02X %02X %02X    %*s    \e[0;32m$%d    \e[0;37m\n",
                     (opcode >>  0) & 0xFF,
@@ -859,6 +1085,11 @@ void solve_label_addrs(compiler* compiler)
         if (opcode == 0x40 || opcode == 0x41)
         {
             uint32_t target_addr = compiler->label_addrs.data[instruction >> 8] + 8 + compiler->temp_constants.used;
+            *(uint32_t*)((char*) compiler->program.data + idx) = opcode | (target_addr << 8);
+        }
+        if (opcode == 0x42)
+        {
+            uint32_t target_addr = (instruction >> 8) + 8 + compiler->temp_constants.used;
             *(uint32_t*)((char*) compiler->program.data + idx) = opcode | (target_addr << 8);
         }
 

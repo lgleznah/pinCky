@@ -7,8 +7,10 @@ yStep       := 7
 
 maxIter     := 300
 
-for y0 := bottomEdge, topEdge, yStep do
-    for x0 := leftEdge, rightEdge, xStep do
+y0 := bottomEdge
+while y0 < topEdge do
+    x0 := leftEdge
+    while x0 < rightEdge do
         x := 0
         y := 0
         i := 0
@@ -28,6 +30,8 @@ for y0 := bottomEdge, topEdge, yStep do
             i := i + 1
         end
         print(theChar)
+        x0 := x0 + xStep
     end
     println ""
+    y0 := y0 + yStep
 end

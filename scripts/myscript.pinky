@@ -1,6 +1,35 @@
-x := 0
+x := 20
+y := 30
+l := 100
 
-while x < 10 do
-    println("x = " + x)
-    x := x + 1
+func say(msg)
+  local arrowtext := "-> " + msg
+  println(arrowtext)
 end
+
+func add(a, b)
+  local result := a + b
+  ret result
+end
+
+func bar(a)
+  local x := 1
+  say(x)
+  while x <= 10 do
+    local l := x + 2
+    if x > 0 then
+      local val := l + add(x, 5) + x
+      say(val)
+    end
+    say(l)
+    x := x + 1
+  end
+end
+
+func foo(a)
+  local x := 5
+  bar(a)
+  say(x)
+end
+
+say(foo(7))
