@@ -1,6 +1,6 @@
 # PinCky
 
-C implementation of the Pinky programming language, done for Gustavo Pezzi's compilers course
+C implementation of the [Pinky programming language](https://pinky-lang.org/), done for Gustavo Pezzi's compilers course
 
 # How to build
 
